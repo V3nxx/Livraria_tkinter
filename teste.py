@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from main import adicionar_Livro, deletar_livro, Buscar_Livro, Atualizar_livro, verificar_login
+from main import adicionar_Livro, deletar_livro, Buscar_Livro, Atualizar_livro, verificar_login, Verificar_Tipo_Login
 
 # FUNÇÕES 
 
@@ -39,8 +39,29 @@ def VerificarLogin():
     senha = Senha.get()
     resultado = verificar_login(usuario,senha)
     if resultado == 1:
-        main.pack()
-        loginFrame.pack_forget()
+
+        resultado = Verificar_Tipo_Login(usuario)
+
+        if resultado == "Admin":
+            main.pack()
+            loginFrame.pack_forget()
+            tk.Button(main, text="Cadastrar", command=menuAdd).pack()
+            tk.Button(main, text="Deletar", command=menuDel).pack()
+            tk.Button(main, text="Buscar", command=menuBusc).pack()
+            tk.Button(main, text="Atualizar Cadastro", command=menuUpd).pack()
+
+        elif resultado == "Funcionario":
+            main.pack()
+            loginFrame.pack_forget()
+            tk.Button(main, text="Buscar", command=menuBusc).pack()
+
+        elif resultado == "Gerente":
+            main.pack()
+            loginFrame.pack_forget()
+            tk.Button(main, text="Cadastrar", command=menuAdd).pack()
+            tk.Button(main, text="Deletar", command=menuDel).pack()
+            tk.Button(main, text="Buscar", command=menuBusc).pack()
+            tk.Button(main, text="Atualizar Cadastro", command=menuUpd).pack()
 
     else:
         print("senha ou usuario incorreto")
@@ -112,13 +133,11 @@ Usuario.pack()
 Senha = tk.Entry(loginFrame)
 Senha.pack()
 tk.Button(loginFrame, text="Entrar", command=VerificarLogin).pack()
+
 # FRAME PRINCIPAL
 
 main = tk.Frame(janela)
-tk.Button(main, text="Cadastrar", command=menuAdd).pack()
-tk.Button(main, text="Deletar", command=menuDel).pack()
-tk.Button(main, text="Buscar", command=menuBusc).pack()
-tk.Button(main, text="Atualizar Cadastro", command=menuUpd).pack()
+
 
 
 # FRAME DA ADIÇÃO

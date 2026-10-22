@@ -30,7 +30,8 @@ conexao.commit()
 cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Usuarios (
                 usuario varchar(30) primary key,
-                senha varchar(100) not null)
+                senha varchar(100) not null,
+                tipo varchar(100) not null)
                 """)
 
                 
@@ -114,5 +115,11 @@ def verificarLogin(usuario,senha):
     Resultado = cursor.fetchone()
     return Resultado[0]
 
+def verificarTipoLogin(usuario):
+    cursor.execute("""
+    select tipo from Usuarios
+    where usuario = ?""",(usuario,))
 
+    Resultado = cursor.fetchone()
+    return Resultado[0]
 

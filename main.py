@@ -1,4 +1,4 @@
-from sql import adicionarLivro, deletarLivro, buscarLivro, atualizarLivro, verificarLogin
+from sql import adicionarLivro, deletarLivro, buscarLivro, atualizarLivro, verificarLogin, verificarTipoLogin
 
 def adicionar_Livro(titulo, autor, categoria, preco, quantidade):
     adicionarLivro(titulo, autor, categoria, preco, quantidade)
@@ -21,4 +21,8 @@ def  Atualizar_livro(titulo, autor, categoria, preco, quantidade, id):
 
 def verificar_login(usuario,senha):
     resultado = verificarLogin(usuario,senha)
+    return resultado
+
+def Verificar_Tipo_Login(usuario):
+    resultado = verificarTipoLogin(usuario)
     return resultado
