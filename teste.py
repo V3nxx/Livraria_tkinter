@@ -1,0 +1,243 @@
+import tkinter as tk
+from tkinter import ttk
+from main import adicionar_Livro, deletar_livro, Buscar_Livro, Atualizar_livro, verificar_login
+
+# FUNÇÕES 
+
+
+    # FLUXO DE PAGINAS
+
+def voltar():
+    print("ok")
+    Addframe.pack_forget()
+    delFrame.pack_forget()
+    BuscFrame.pack_forget()
+    UpdFrame.pack_forget()
+    main.pack()
+    
+
+def menuAdd():
+    main.pack_forget()
+    Addframe.pack()
+
+def menuDel():
+    main.pack_forget()
+    delFrame.pack()
+
+def menuBusc():
+    main.pack_forget()
+    BuscFrame.pack()
+
+def menuUpd():
+    main.pack_forget()
+    UpdFrame.pack()
+
+
+    # BOTÕES DAS PAGINAS
+def VerificarLogin():
+    usuario = Usuario.get()
+    senha = Senha.get()
+    resultado = verificar_login(usuario,senha)
+    if resultado == 1:
+        main.pack()
+        loginFrame.pack_forget()
+
+    else:
+        print("senha ou usuario incorreto")
+
+
+
+def addLivro():
+
+    titulo = TituloAdd.get()
+    autor = AutorAdd.get()
+    categoria = CategAdd.get()
+    preco = PrecoAdd.get()
+    quantidade = QuantAdd.get()
+    Addframe.pack_forget()
+    main.pack()
+
+    adicionar_Livro(titulo,autor,categoria,preco,quantidade)
+
+def updLivro():
+
+    titulo = TituloUpd.get()
+    autor = AutorUpd.get()
+    categoria = CategUpd.get()
+    preco = PrecoUpd.get()
+    quantidade = QuantUpd.get()
+    id = IdUpd.get()
+    UpdFrame.pack_forget()
+    main.pack()
+
+    Atualizar_livro(titulo,autor,categoria,preco,quantidade,id)
+
+def delLivro():
+
+    livro_id = LivroDel.get()
+    delFrame.pack_forget()
+    main.pack()
+
+    deletar_livro(livro_id)
+
+def BuscarL():
+
+    Livro = barraBusca.get()
+
+    resultados = Buscar_Livro(Livro)
+
+    # Limpa os resultados anteriores
+    for item in TabelaLivro.get_children():
+        TabelaLivro.delete(item)
+
+    # Insere os livros encontrados
+    for registro in resultados:
+        TabelaLivro.insert("", tk.END, values=registro)
+    print("1")
+
+
+
+# JANELA PRINCIPAL
+
+janela = tk.Tk()
+janela.title("Login")
+janela.geometry("800x300")
+
+# FRAME DE LOGIN
+
+loginFrame = tk.Frame(janela)
+loginFrame.pack()
+Usuario = tk.Entry(loginFrame)
+Usuario.pack()
+Senha = tk.Entry(loginFrame)
+Senha.pack()
+tk.Button(loginFrame, text="Entrar", command=VerificarLogin).pack()
+# FRAME PRINCIPAL
+
+main = tk.Frame(janela)
+tk.Button(main, text="Cadastrar", command=menuAdd).pack()
+tk.Button(main, text="Deletar", command=menuDel).pack()
+tk.Button(main, text="Buscar", command=menuBusc).pack()
+tk.Button(main, text="Atualizar Cadastro", command=menuUpd).pack()
+
+
+# FRAME DA ADIÇÃO
+
+Addframe = tk.Frame(janela)
+
+tk.Label(Addframe, text="Nome do livro:").pack()
+TituloAdd = tk.Entry(Addframe)
+TituloAdd.pack()
+
+tk.Label(Addframe, text="Nome do autor:").pack()
+AutorAdd = tk.Entry(Addframe)
+AutorAdd.pack()
+
+tk.Label(Addframe, text="Categoria:").pack()
+CategAdd = tk.Entry(Addframe)
+CategAdd.pack()
+
+tk.Label(Addframe, text="Preço:").pack()
+PrecoAdd = tk.Entry(Addframe)
+PrecoAdd.pack()
+
+tk.Label(Addframe, text="Quantidade:").pack()
+QuantAdd = tk.Entry(Addframe)
+QuantAdd.pack()
+
+Add = tk.Button(Addframe, text="Adicionar", command = addLivro)
+Add.pack()
+
+Btvoltar = tk.Button(Addframe, text="voltar", command = voltar)
+Btvoltar.pack()
+
+
+# REMOVER LIVRO
+
+delFrame = tk.Frame(janela)
+
+tk.Label(delFrame, text="Id / Nome do livro:").pack()
+LivroDel = tk.Entry(delFrame)
+LivroDel.pack()
+
+Del = tk.Button(delFrame, text="Deletar", command = delLivro)
+Del.pack()
+
+Btvoltar = tk.Button(delFrame, text="voltar", command = voltar)
+Btvoltar.pack()
+
+
+# BUSCAR LIVRO 
+
+BuscFrame = tk.Frame(janela)
+
+barraBusca = tk.Entry(BuscFrame)
+barraBusca.pack()
+
+BotaoBusc = tk.Button(BuscFrame,text="Buscar", command=BuscarL)
+BotaoBusc.pack()
+
+Btvoltar = tk.Button(BuscFrame, text="voltar", command = voltar)
+Btvoltar.pack()
+
+    # Tabela
+
+TabelaLivro = ttk.Treeview(
+    BuscFrame,
+    columns=("ID","TITULO","AUTOR","CATEGORIA","PREÇO","QUANTIDADE"),
+    show="headings"
+)
+TabelaLivro.pack()
+
+TabelaLivro.heading("ID", text="ID")
+TabelaLivro.heading("TITULO", text="TITULO")
+TabelaLivro.heading("AUTOR", text="AUTOR")
+TabelaLivro.heading("CATEGORIA", text="CATEGORIA")
+TabelaLivro.heading("PREÇO", text="PREÇO")
+TabelaLivro.heading("QUANTIDADE", text="QUANTIDADE")
+
+TabelaLivro.column("ID",width=50) 
+TabelaLivro.column("TITULO", width=200)
+TabelaLivro.column("AUTOR", width=150)
+TabelaLivro.column("CATEGORIA", width=120 )
+TabelaLivro.column("PREÇO", width=100)
+TabelaLivro.column("QUANTIDADE", width=100)
+
+
+# atualizar cadastro
+
+UpdFrame = tk.Frame(janela)
+
+tk.Label(UpdFrame, text="Nome do livro:").pack()
+TituloUpd = tk.Entry(UpdFrame)
+TituloUpd.pack()
+
+tk.Label(UpdFrame, text="Nome do autor:").pack()
+AutorUpd = tk.Entry(UpdFrame)
+AutorUpd.pack()
+
+tk.Label(UpdFrame, text="Categoria:").pack()
+CategUpd = tk.Entry(UpdFrame)
+CategUpd.pack()
+
+tk.Label(UpdFrame, text="Preço:").pack()
+PrecoUpd = tk.Entry(UpdFrame)
+PrecoUpd.pack()
+
+tk.Label(UpdFrame, text="Quantidade:").pack()
+QuantUpd = tk.Entry(UpdFrame)
+QuantUpd.pack()
+
+tk.Label(UpdFrame, text="ID:").pack()
+IdUpd = tk.Entry(UpdFrame)
+IdUpd.pack()
+
+Upd = tk.Button(UpdFrame, text="Atualizar", command = updLivro)
+Upd.pack()
+
+Btvoltar = tk.Button(UpdFrame, text="voltar", command = voltar)
+Btvoltar.pack()
+
+
+
+janela.mainloop()
