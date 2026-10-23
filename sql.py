@@ -123,3 +123,13 @@ def verificarTipoLogin(usuario):
     Resultado = cursor.fetchone()
     return Resultado[0]
 
+def buscarLivro(livro_id):
+    cursor.execute("""
+        SELECT * FROM livros
+        WHERE livro_id = ?
+    """, (livro_id,))
+
+    resultado = cursor.fetchone()
+    print("3")
+
+    return resultado

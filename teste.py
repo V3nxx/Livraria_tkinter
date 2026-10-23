@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from main import adicionar_Livro, deletar_livro, Buscar_Livro, Atualizar_livro, verificar_login, Verificar_Tipo_Login
+from main import adicionar_Livro, deletar_livro, Buscar_Livro, Atualizar_livro, verificar_login, Verificar_Tipo_Login, Buscar_Livro_venda
 
 # FUNÇÕES 
 
@@ -32,6 +32,9 @@ def menuUpd():
     main.pack_forget()
     UpdFrame.pack()
 
+def menuVenda():
+    main.pack_forget()
+    VendaFrame.pack()
 
     # BOTÕES DAS PAGINAS
 def VerificarLogin():
@@ -54,6 +57,7 @@ def VerificarLogin():
             main.pack()
             loginFrame.pack_forget()
             tk.Button(main, text="Buscar", command=menuBusc).pack()
+            tk.Button(main, text="Venda", command=menuVenda).pack()
 
         elif resultado == "Gerente":
             main.pack()
@@ -114,6 +118,18 @@ def BuscarL():
     # Insere os livros encontrados
     for registro in resultados:
         TabelaLivro.insert("", tk.END, values=registro)
+    print("1")
+
+def Venderlivro():
+   
+    livro_id = idVenda.get()
+    Vender_Livro(livro_id)
+
+def BuscaVenda(idVenda):
+    livro_id = idVenda.get()
+    resultados = Buscar_Livro_venda(livro_id)
+
+    TabelaLivroVenda.insert("", tk.END, values=resultados)
     print("1")
 
 
@@ -198,6 +214,38 @@ BotaoBusc.pack()
 
 Btvoltar = tk.Button(BuscFrame, text="voltar", command = voltar)
 Btvoltar.pack()
+
+# FRAME VENDA
+
+VendaFrame = tk.Frame(janela)
+
+idVenda = tk.Entry(VendaFrame)
+idVenda.pack()
+
+BuscarLivroVenda = tk.Button(VendaFrame,text="Buscar", command=lambda: BuscaVenda(idVenda))
+BuscarLivroVenda.pack()
+
+BotaoVend = tk.Button(VendaFrame,text="Vender", command =Venderlivro)
+BotaoVend.pack()
+
+TabelaLivroVenda = ttk.Treeview(
+    VendaFrame,
+    columns=("ID","TITULO","AUTOR","CATEGORIA","PREÇO","QUANTIDADE"),
+    show="headings"
+)
+TabelaLivroVenda.pack()
+
+TabelaLivroVenda.heading("ID", text="ID")
+TabelaLivroVenda.heading("TITULO", text="TITULO")
+TabelaLivroVenda.heading("AUTOR", text="AUTOR")
+TabelaLivroVenda.heading("CATEGORIA", text="CATEGORIA")
+TabelaLivroVenda.heading("PREÇO", text="PREÇO")
+
+TabelaLivroVenda.column("ID",width=50) 
+TabelaLivroVenda.column("TITULO", width=200)
+TabelaLivroVenda.column("AUTOR", width=150)
+TabelaLivroVenda.column("CATEGORIA", width=120 )
+TabelaLivroVenda.column("PREÇO", width=100)
 
     # Tabela
 

@@ -6,7 +6,6 @@ def adicionar_Livro(titulo, autor, categoria, preco, quantidade):
 
 def deletar_livro(livro_id):
     deletarLivro(livro_id)
-
     
 
 def Buscar_Livro(livro):
@@ -25,4 +24,8 @@ def verificar_login(usuario,senha):
 
 def Verificar_Tipo_Login(usuario):
     resultado = verificarTipoLogin(usuario)
+    return resultado
+
+def Buscar_Livro_venda(livro_id):
+    resultado = buscarLivro(livro_id)
     return resultado
