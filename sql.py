@@ -123,7 +123,7 @@ def verificarTipoLogin(usuario):
     Resultado = cursor.fetchone()
     return Resultado[0]
 
-def buscarLivro(livro_id):
+def buscarLivroVenda(livro_id):
     cursor.execute("""
         SELECT * FROM livros
         WHERE livro_id = ?
@@ -133,3 +133,18 @@ def buscarLivro(livro_id):
     print("3")
 
     return resultado
+
+def verificarTipoLogin(usuario):
+    cursor.execute("""
+    select tipo from Usuarios
+    where usuario = ?""",(usuario,))
+
+    Resultado = cursor.fetchone()
+    return Resultado[0]
+
+def Venderlivro(livro_id):
+    cursor.execute("""
+    update livros
+        set Quantidade = Quantidade - 1
+        where livro_id = ?
+    """,(livro_id))

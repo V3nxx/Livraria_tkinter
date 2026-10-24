@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from main import adicionar_Livro, deletar_livro, Buscar_Livro, Atualizar_livro, verificar_login, Verificar_Tipo_Login, Buscar_Livro_venda
+from main import adicionar_Livro, deletar_livro, Buscar_Livro, Atualizar_livro, verificar_login, Verificar_Tipo_Login, Buscar_Livro_venda, Vender_livro
 
 # FUNÇÕES 
 
@@ -13,6 +13,7 @@ def voltar():
     delFrame.pack_forget()
     BuscFrame.pack_forget()
     UpdFrame.pack_forget()
+    VendaFrame.pack_forget()
     main.pack()
     
 
@@ -121,16 +122,32 @@ def BuscarL():
     print("1")
 
 def Venderlivro():
-   
-    livro_id = idVenda.get()
-    Vender_Livro(livro_id)
+    for item in TabelaLivroVenda.get_children():
+        livro = TabelaLivroVenda.item(item, "values")
+
+        livro_id = livro[0]
+        Vender_livro(livro_id)
+
 
 def BuscaVenda(idVenda):
     livro_id = idVenda.get()
+    Precos = 0
     resultados = Buscar_Livro_venda(livro_id)
+    if resultados:
+        TabelaLivroVenda.insert("", tk.END, values=resultados)
+        Valortotal(resultados)
+    else:
+        print("Erro, ID errado")
 
-    TabelaLivroVenda.insert("", tk.END, values=resultados)
-    print("1")
+precoTotal = 0
+
+def Valortotal(resultados):
+    global precoTotal
+
+    valor = resultados[4]
+    precoTotal += valor
+
+    ValorTotal.config(text=f"Total: R$ {precoTotal:.2f}")
 
 
 
@@ -216,14 +233,19 @@ Btvoltar = tk.Button(BuscFrame, text="voltar", command = voltar)
 Btvoltar.pack()
 
 # FRAME VENDA
-
 VendaFrame = tk.Frame(janela)
 
 idVenda = tk.Entry(VendaFrame)
 idVenda.pack()
 
+Btvoltar = tk.Button(VendaFrame, text="voltar", command = voltar)
+Btvoltar.pack()
+
 BuscarLivroVenda = tk.Button(VendaFrame,text="Buscar", command=lambda: BuscaVenda(idVenda))
 BuscarLivroVenda.pack()
+
+ValorTotal = tk.Label(VendaFrame, text="Total: R$ 0.00")
+ValorTotal.pack()
 
 BotaoVend = tk.Button(VendaFrame,text="Vender", command =Venderlivro)
 BotaoVend.pack()
@@ -240,12 +262,14 @@ TabelaLivroVenda.heading("TITULO", text="TITULO")
 TabelaLivroVenda.heading("AUTOR", text="AUTOR")
 TabelaLivroVenda.heading("CATEGORIA", text="CATEGORIA")
 TabelaLivroVenda.heading("PREÇO", text="PREÇO")
+TabelaLivroVenda.heading("QUANTIDADE", text="QUANTIDADE")
 
 TabelaLivroVenda.column("ID",width=50) 
 TabelaLivroVenda.column("TITULO", width=200)
 TabelaLivroVenda.column("AUTOR", width=150)
 TabelaLivroVenda.column("CATEGORIA", width=120 )
 TabelaLivroVenda.column("PREÇO", width=100)
+TabelaLivroVenda.column("QUANTIDADE", width=100)
 
     # Tabela
 
