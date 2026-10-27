@@ -148,3 +148,5 @@ def Venderlivro(livro_id):
         set Quantidade = Quantidade - 1
         where livro_id = ?
     """,(livro_id))
+
+    conexao.commit()

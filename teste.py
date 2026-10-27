@@ -16,6 +16,10 @@ def voltar():
     VendaFrame.pack_forget()
     main.pack()
     
+def menuHist():
+    main.pack_forget()
+    histFrame.pack()
+    print("ok")
 
 def menuAdd():
     main.pack_forget()
@@ -53,6 +57,7 @@ def VerificarLogin():
             tk.Button(main, text="Deletar", command=menuDel).pack()
             tk.Button(main, text="Buscar", command=menuBusc).pack()
             tk.Button(main, text="Atualizar Cadastro", command=menuUpd).pack()
+            tk.Button(main, text="Historico de vendas", command=menuHist).pack()
 
         elif resultado == "Funcionario":
             main.pack()
@@ -67,6 +72,7 @@ def VerificarLogin():
             tk.Button(main, text="Deletar", command=menuDel).pack()
             tk.Button(main, text="Buscar", command=menuBusc).pack()
             tk.Button(main, text="Atualizar Cadastro", command=menuUpd).pack()
+            tk.Button(main, text="Historico de vendas", command=menuHist).pack()
 
     else:
         print("senha ou usuario incorreto")
@@ -329,6 +335,27 @@ Upd.pack()
 Btvoltar = tk.Button(UpdFrame, text="voltar", command = voltar)
 Btvoltar.pack()
 
+# HISTORICO DE VENDAS
 
+histFrame = tk.Frame(janela)
+
+TabelaLivroHisto = ttk.Treeview(
+    histFrame,
+    columns=("ID","ID_Vendedor","TITULOS","PRECO_TOTAL","DATA"),
+    show="headings"
+)
+TabelaLivroHisto.pack()
+
+TabelaLivroHisto.heading("ID", text="ID")
+TabelaLivroHisto.heading("ID_Vendedor", text="ID_Vendedor")
+TabelaLivroHisto.heading("TITULOS", text="TITULOS")
+TabelaLivroHisto.heading("PRECO_TOTAL", text="PRECO TOTAL")
+TabelaLivroHisto.heading("DATA", text="DATA")
+
+TabelaLivroHisto.column("ID", width=50 )
+TabelaLivroHisto.column("ID_Vendedor", width=50 )
+TabelaLivroHisto.column("TITULOS", width=200)
+TabelaLivroHisto.column("PRECO_TOTAL", width=50 )
+TabelaLivroHisto.column("DATA", width=50)
 
 janela.mainloop()
