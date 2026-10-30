@@ -3,6 +3,7 @@ import sqlite3 as sql
 conexao = sql.connect("livraria.db")
 cursor = conexao.cursor()
 
+
 cursor.execute("""
                 CREATE TABLE IF NOT EXISTS livros (
                 livro_id integer primary key autoincrement,
@@ -12,8 +13,8 @@ cursor.execute("""
                 Preco decimal(6,2),
                 Quantidade VARCHAR(50) not null)
                 """)
-
 conexao.commit()
+
 
 cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Vendas (
@@ -23,25 +24,35 @@ cursor.execute("""
                 Date text not null,
                 foreign key (livro_id) references livros(livro_id))
                 """)
-                
-
 conexao.commit()
+
 
 cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Usuarios (
                 usuario varchar(30) primary key,
                 senha varchar(100) not null,
-                tipo varchar(100) not null)
+                tipo varchar(100) not null,
+                foreign key (livro_id) references livros(livro_id))
                 """)
-
-                
 conexao.commit()
+
+
+cursor.execute("""
+                CREATE TABLE IF NOT EXISTS Vendedor (
+                Funcionario varchar(30) primary key,
+                tipo varchar(100) not null),
+                foreign key (livro_id) references livros(livro_id))
+                """)
+conexao.commit()
+
 
 
 #   FUNÇÕES PARA O TKINTER (C.R.U.D)
 
 
 # Para adicionar algum livro 
+
+
 def adicionarLivro(titulo, autor, categoria, preco, quantidade):
 
     cursor.execute("""
@@ -55,6 +66,8 @@ def adicionarLivro(titulo, autor, categoria, preco, quantidade):
 
 
 # Para deletar algum livro
+
+
 def deletarLivro(livro_id):
 
     cursor.execute("""
@@ -67,6 +80,8 @@ def deletarLivro(livro_id):
 
 
 # Para buscar algum livro(ou livros)
+
+
 def buscarLivro(livro):
 
     cursor.execute("""
@@ -82,7 +97,9 @@ def buscarLivro(livro):
     return livrosBusc
 
 
-#PAra atualizar algum livro
+# Para atualizar algum livro
+
+
 def atualizarLivro(Titulo=None, Autor=None, Categoria=None, Preco=None, Quantidade=None, livro_id=None):
 
     Titulo = Titulo  if Titulo else None
@@ -150,3 +167,9 @@ def Venderlivro(livro_id):
     """,(livro_id))
 
     conexao.commit()
+
+def adicionarHisto(Venda_id,livro_id,Preco_unit,Date):
+    cursor.execute("""
+    INSERT INTO livros (Venda_id, livro_id, Preco_unit, Date)
+    VALUES (?, ?, ?, ?)
+    """,(Venda_id,livro_id,Preco_unit,Date))

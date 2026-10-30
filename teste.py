@@ -1,83 +1,229 @@
+
 import tkinter as tk
 from tkinter import ttk
-from main import adicionar_Livro, deletar_livro, Buscar_Livro, Atualizar_livro, verificar_login, Verificar_Tipo_Login, Buscar_Livro_venda, Vender_livro
+import customtkinter as ctk
 
-# FUNÇÕES 
+from main import (
+    adicionar_Livro,
+    deletar_livro,
+    Buscar_Livro,
+    Atualizar_livro,
+    verificar_login,
+    Verificar_Tipo_Login,
+    Buscar_Livro_venda,
+    Vender_livro,
+    adicionar_Histo
+)
+
+# ==========================================
+# CONFIGURAÇÕES
+# ==========================================
+
+ctk.set_appearance_mode("light")
+ctk.set_default_color_theme("blue")
+
+FUNDO = "#f7f3ea"
+BOTAO = "#FFFFFF"
+LETRAS = "#244638"
+HOVER = "#EAE6DC"
+
+janela = ctk.CTk()
+janela.title("Sistema de Livraria")
+janela.attributes("-fullscreen", True)
+
+# ESC para sair do fullscreen
+janela.bind(
+    "<Escape>",
+    lambda event: janela.attributes("-fullscreen", False)
+)
 
 
-    # FLUXO DE PAGINAS
+# ==========================================
+# FUNÇÕES DE ESTILO
+# ==========================================
+
+def criar_botao(frame, texto, comando):
+
+    return ctk.CTkButton(
+        frame,
+        text=texto,
+        command=comando,
+        width=250,
+        height=45,
+        corner_radius=10,
+        fg_color=BOTAO,
+        hover_color=HOVER,
+        text_color=LETRAS,
+        border_color=LETRAS,
+        border_width=1,
+        font=("Arial", 14, "bold")
+    )
+
+
+def criar_campo(frame, placeholder=""):
+
+    return ctk.CTkEntry(
+        frame,
+        width=250,
+        height=40,
+        placeholder_text=placeholder,
+        fg_color=BOTAO,
+        text_color=LETRAS,
+        border_color=LETRAS,
+        corner_radius=8
+    )
+
+
+def criar_titulo(frame, texto):
+
+    return ctk.CTkLabel(
+        frame,
+        text=texto,
+        font=("Arial", 28, "bold"),
+        text_color=LETRAS
+    )
+
+
+# ==========================================
+# FLUXO DE PÁGINAS
+# ==========================================
+
+def esconder_telas():
+
+    for frame in todas_telas:
+        frame.pack_forget()
+
 
 def voltar():
-    print("ok")
-    Addframe.pack_forget()
-    delFrame.pack_forget()
-    BuscFrame.pack_forget()
-    UpdFrame.pack_forget()
-    VendaFrame.pack_forget()
-    main.pack()
-    
+
+    esconder_telas()
+    main.pack(fill="both", expand=True)
+
+
 def menuHist():
-    main.pack_forget()
-    histFrame.pack()
-    print("ok")
+
+    esconder_telas()
+    histFrame.pack(fill="both", expand=True)
+
 
 def menuAdd():
-    main.pack_forget()
-    Addframe.pack()
+
+    esconder_telas()
+    Addframe.pack(fill="both", expand=True)
+
 
 def menuDel():
-    main.pack_forget()
-    delFrame.pack()
+
+    esconder_telas()
+    delFrame.pack(fill="both", expand=True)
+
 
 def menuBusc():
-    main.pack_forget()
-    BuscFrame.pack()
+
+    esconder_telas()
+    BuscFrame.pack(fill="both", expand=True)
+
 
 def menuUpd():
-    main.pack_forget()
-    UpdFrame.pack()
+
+    esconder_telas()
+    UpdFrame.pack(fill="both", expand=True)
+
 
 def menuVenda():
-    main.pack_forget()
-    VendaFrame.pack()
 
-    # BOTÕES DAS PAGINAS
-def VerificarLogin():
-    usuario = Usuario.get()
-    senha = Senha.get()
-    resultado = verificar_login(usuario,senha)
-    if resultado == 1:
+    esconder_telas()
+    VendaFrame.pack(fill="both", expand=True)
 
-        resultado = Verificar_Tipo_Login(usuario)
 
-        if resultado == "Admin":
-            main.pack()
-            loginFrame.pack_forget()
-            tk.Button(main, text="Cadastrar", command=menuAdd).pack()
-            tk.Button(main, text="Deletar", command=menuDel).pack()
-            tk.Button(main, text="Buscar", command=menuBusc).pack()
-            tk.Button(main, text="Atualizar Cadastro", command=menuUpd).pack()
-            tk.Button(main, text="Historico de vendas", command=menuHist).pack()
+# ==========================================
+# MENU PRINCIPAL CENTRALIZADO
+# ==========================================
 
-        elif resultado == "Funcionario":
-            main.pack()
-            loginFrame.pack_forget()
-            tk.Button(main, text="Buscar", command=menuBusc).pack()
-            tk.Button(main, text="Venda", command=menuVenda).pack()
+def criar_menu():
 
-        elif resultado == "Gerente":
-            main.pack()
-            loginFrame.pack_forget()
-            tk.Button(main, text="Cadastrar", command=menuAdd).pack()
-            tk.Button(main, text="Deletar", command=menuDel).pack()
-            tk.Button(main, text="Buscar", command=menuBusc).pack()
-            tk.Button(main, text="Atualizar Cadastro", command=menuUpd).pack()
-            tk.Button(main, text="Historico de vendas", command=menuHist).pack()
+    for widget in main.winfo_children():
+        widget.destroy()
+
+    # Frame que centraliza os elementos
+    centro = ctk.CTkFrame(
+        main,
+        fg_color="transparent"
+    )
+
+    centro.place(
+        relx=0.5,
+        rely=0.5,
+        anchor="center"
+    )
+
+    criar_titulo(
+        centro,
+        "Sistema de Livraria"
+    ).pack(pady=30)
+
+    if tipo_usuario in ("Admin", "Gerente"):
+
+        botoes = [
+            ("Cadastrar", menuAdd),
+            ("Deletar", menuDel),
+            ("Buscar", menuBusc),
+            ("Atualizar Cadastro", menuUpd),
+            ("Historico de vendas", menuHist)
+        ]
+
+    elif tipo_usuario == "Funcionario":
+
+        botoes = [
+            ("Buscar", menuBusc),
+            ("Venda", menuVenda)
+        ]
 
     else:
-        print("senha ou usuario incorreto")
+        return
+
+    for texto, comando in botoes:
+
+        criar_botao(
+            centro,
+            texto,
+            comando
+        ).pack(pady=8)
 
 
+# ==========================================
+# LOGIN
+# ==========================================
+
+def VerificarLogin():
+
+    global tipo_usuario
+
+    usuario = Usuario.get()
+    senha = Senha.get()
+
+    resultado = verificar_login(usuario, senha)
+
+    if resultado == 1:
+
+        tipo_usuario = Verificar_Tipo_Login(usuario)
+
+        esconder_telas()
+
+        criar_menu()
+
+        main.pack(fill="both", expand=True)
+
+    else:
+
+        loginErro.configure(
+            text="Usuário ou senha incorretos!"
+        )
+
+
+# ==========================================
+# CADASTRAR LIVRO
+# ==========================================
 
 def addLivro():
 
@@ -86,10 +232,21 @@ def addLivro():
     categoria = CategAdd.get()
     preco = PrecoAdd.get()
     quantidade = QuantAdd.get()
-    Addframe.pack_forget()
-    main.pack()
 
-    adicionar_Livro(titulo,autor,categoria,preco,quantidade)
+    adicionar_Livro(
+        titulo,
+        autor,
+        categoria,
+        preco,
+        quantidade
+    )
+
+    voltar()
+
+
+# ==========================================
+# ATUALIZAR LIVRO
+# ==========================================
 
 def updLivro():
 
@@ -99,18 +256,35 @@ def updLivro():
     preco = PrecoUpd.get()
     quantidade = QuantUpd.get()
     id = IdUpd.get()
-    UpdFrame.pack_forget()
-    main.pack()
 
-    Atualizar_livro(titulo,autor,categoria,preco,quantidade,id)
+    Atualizar_livro(
+        titulo,
+        autor,
+        categoria,
+        preco,
+        quantidade,
+        id
+    )
+
+    voltar()
+
+
+# ==========================================
+# DELETAR LIVRO
+# ==========================================
 
 def delLivro():
 
     livro_id = LivroDel.get()
-    delFrame.pack_forget()
-    main.pack()
 
     deletar_livro(livro_id)
+
+    voltar()
+
+
+# ==========================================
+# BUSCAR LIVRO
+# ==========================================
 
 def BuscarL():
 
@@ -118,233 +292,475 @@ def BuscarL():
 
     resultados = Buscar_Livro(Livro)
 
-    # Limpa os resultados anteriores
     for item in TabelaLivro.get_children():
         TabelaLivro.delete(item)
 
-    # Insere os livros encontrados
     for registro in resultados:
-        TabelaLivro.insert("", tk.END, values=registro)
-    print("1")
 
-def Venderlivro():
-    for item in TabelaLivroVenda.get_children():
-        livro = TabelaLivroVenda.item(item, "values")
-
-        livro_id = livro[0]
-        Vender_livro(livro_id)
+        TabelaLivro.insert(
+            "",
+            tk.END,
+            values=registro
+        )
 
 
-def BuscaVenda(idVenda):
-    livro_id = idVenda.get()
-    Precos = 0
-    resultados = Buscar_Livro_venda(livro_id)
-    if resultados:
-        TabelaLivroVenda.insert("", tk.END, values=resultados)
-        Valortotal(resultados)
-    else:
-        print("Erro, ID errado")
+# ==========================================
+# VENDAS
+# ==========================================
 
 precoTotal = 0
 
+
+def BuscaVenda(idVenda):
+
+    livro_id = idVenda.get()
+
+    resultados = Buscar_Livro_venda(livro_id)
+
+    if resultados:
+
+        TabelaLivroVenda.insert(
+            "",
+            tk.END,
+            values=resultados
+        )
+
+        Valortotal(resultados)
+
+    else:
+
+        print("Erro, ID errado")
+
+
 def Valortotal(resultados):
+
     global precoTotal
 
-    valor = resultados[4]
+    valor = float(resultados[4])
+
     precoTotal += valor
 
-    ValorTotal.config(text=f"Total: R$ {precoTotal:.2f}")
+    ValorTotal.configure(
+        text=f"Total: R$ {precoTotal:.2f}"
+    )
 
 
+def Venderlivro():
+    
+    global precoTotal
 
-# JANELA PRINCIPAL
+    for item in TabelaLivroVenda.get_children():
 
-janela = tk.Tk()
-janela.title("Login")
-janela.geometry("800x300")
+        livro = TabelaLivroVenda.item(
+            item,
+            "values"
+        )
 
-# FRAME DE LOGIN
+        livro_id = livro[0]
 
-loginFrame = tk.Frame(janela)
-loginFrame.pack()
-Usuario = tk.Entry(loginFrame)
-Usuario.pack()
-Senha = tk.Entry(loginFrame)
-Senha.pack()
-tk.Button(loginFrame, text="Entrar", command=VerificarLogin).pack()
+        Vender_livro(livro_id)
 
-# FRAME PRINCIPAL
-
-main = tk.Frame(janela)
-
+    for item in TabelaLivroVenda.get_children():
+        TabelaLivroVenda.delete(item)
+        adicionar_Histo()
+        
 
 
-# FRAME DA ADIÇÃO
+    precoTotal = 0
 
-Addframe = tk.Frame(janela)
-
-tk.Label(Addframe, text="Nome do livro:").pack()
-TituloAdd = tk.Entry(Addframe)
-TituloAdd.pack()
-
-tk.Label(Addframe, text="Nome do autor:").pack()
-AutorAdd = tk.Entry(Addframe)
-AutorAdd.pack()
-
-tk.Label(Addframe, text="Categoria:").pack()
-CategAdd = tk.Entry(Addframe)
-CategAdd.pack()
-
-tk.Label(Addframe, text="Preço:").pack()
-PrecoAdd = tk.Entry(Addframe)
-PrecoAdd.pack()
-
-tk.Label(Addframe, text="Quantidade:").pack()
-QuantAdd = tk.Entry(Addframe)
-QuantAdd.pack()
-
-Add = tk.Button(Addframe, text="Adicionar", command = addLivro)
-Add.pack()
-
-Btvoltar = tk.Button(Addframe, text="voltar", command = voltar)
-Btvoltar.pack()
+    ValorTotal.configure(
+        text="Total: R$ 0.00"
+    )
 
 
-# REMOVER LIVRO
+# ==========================================
+# ESTILO DAS TABELAS
+# ==========================================
 
-delFrame = tk.Frame(janela)
+style = ttk.Style()
 
-tk.Label(delFrame, text="Id / Nome do livro:").pack()
-LivroDel = tk.Entry(delFrame)
-LivroDel.pack()
+style.theme_use("clam")
 
-Del = tk.Button(delFrame, text="Deletar", command = delLivro)
-Del.pack()
-
-Btvoltar = tk.Button(delFrame, text="voltar", command = voltar)
-Btvoltar.pack()
-
-
-# BUSCAR LIVRO 
-
-BuscFrame = tk.Frame(janela)
-
-barraBusca = tk.Entry(BuscFrame)
-barraBusca.pack()
-
-BotaoBusc = tk.Button(BuscFrame,text="Buscar", command=BuscarL)
-BotaoBusc.pack()
-
-Btvoltar = tk.Button(BuscFrame, text="voltar", command = voltar)
-Btvoltar.pack()
-
-# FRAME VENDA
-VendaFrame = tk.Frame(janela)
-
-idVenda = tk.Entry(VendaFrame)
-idVenda.pack()
-
-Btvoltar = tk.Button(VendaFrame, text="voltar", command = voltar)
-Btvoltar.pack()
-
-BuscarLivroVenda = tk.Button(VendaFrame,text="Buscar", command=lambda: BuscaVenda(idVenda))
-BuscarLivroVenda.pack()
-
-ValorTotal = tk.Label(VendaFrame, text="Total: R$ 0.00")
-ValorTotal.pack()
-
-BotaoVend = tk.Button(VendaFrame,text="Vender", command =Venderlivro)
-BotaoVend.pack()
-
-TabelaLivroVenda = ttk.Treeview(
-    VendaFrame,
-    columns=("ID","TITULO","AUTOR","CATEGORIA","PREÇO","QUANTIDADE"),
-    show="headings"
+style.configure(
+    "Treeview",
+    background="#FFFFFF",
+    foreground=LETRAS,
+    fieldbackground="#FFFFFF",
+    rowheight=30,
+    font=("Arial", 10)
 )
-TabelaLivroVenda.pack()
 
-TabelaLivroVenda.heading("ID", text="ID")
-TabelaLivroVenda.heading("TITULO", text="TITULO")
-TabelaLivroVenda.heading("AUTOR", text="AUTOR")
-TabelaLivroVenda.heading("CATEGORIA", text="CATEGORIA")
-TabelaLivroVenda.heading("PREÇO", text="PREÇO")
-TabelaLivroVenda.heading("QUANTIDADE", text="QUANTIDADE")
+style.configure(
+    "Treeview.Heading",
+    background=LETRAS,
+    foreground="#FFFFFF",
+    font=("Arial", 10, "bold")
+)
 
-TabelaLivroVenda.column("ID",width=50) 
-TabelaLivroVenda.column("TITULO", width=200)
-TabelaLivroVenda.column("AUTOR", width=150)
-TabelaLivroVenda.column("CATEGORIA", width=120 )
-TabelaLivroVenda.column("PREÇO", width=100)
-TabelaLivroVenda.column("QUANTIDADE", width=100)
+style.map(
+    "Treeview",
+    background=[("selected", "#DCE8DF")],
+    foreground=[("selected", LETRAS)]
+)
 
-    # Tabela
+
+# ==========================================
+# FRAME DE LOGIN
+# ==========================================
+
+loginFrame = ctk.CTkFrame(
+    janela,
+    fg_color=FUNDO
+)
+
+loginFrame.pack(fill="both", expand=True)
+
+loginCentro = ctk.CTkFrame(
+    loginFrame,
+    fg_color="transparent"
+)
+
+loginCentro.place(
+    relx=0.5,
+    rely=0.5,
+    anchor="center"
+)
+
+criar_titulo(
+    loginCentro,
+    "LIVRARIA"
+).pack(pady=25)
+
+ctk.CTkLabel(
+    loginCentro,
+    text="Faça login para continuar",
+    text_color=LETRAS,
+    font=("Arial", 16)
+).pack(pady=10)
+
+Usuario = criar_campo(
+    loginCentro,
+    "Usuário"
+)
+Usuario.pack(pady=8)
+
+Senha = criar_campo(
+    loginCentro,
+    "Senha"
+)
+Senha.configure(show="*")
+Senha.pack(pady=8)
+
+criar_botao(
+    loginCentro,
+    "Entrar",
+    VerificarLogin
+).pack(pady=15)
+
+loginErro = ctk.CTkLabel(
+    loginCentro,
+    text="",
+    text_color="#B91C1C"
+)
+loginErro.pack()
+
+
+# ==========================================
+# FRAME PRINCIPAL
+# ==========================================
+
+main = ctk.CTkFrame(
+    janela,
+    fg_color=FUNDO
+)
+
+
+# ==========================================
+# FRAME DA ADIÇÃO
+# ==========================================
+
+Addframe = ctk.CTkFrame(
+    janela,
+    fg_color=FUNDO
+)
+
+criar_titulo(
+    Addframe,
+    "Cadastrar Livro"
+).pack(pady=20)
+
+ctk.CTkLabel(Addframe, text="Nome do livro:", text_color=LETRAS).pack()
+TituloAdd = criar_campo(Addframe)
+TituloAdd.pack(pady=5)
+
+ctk.CTkLabel(Addframe, text="Nome do autor:", text_color=LETRAS).pack()
+AutorAdd = criar_campo(Addframe)
+AutorAdd.pack(pady=5)
+
+ctk.CTkLabel(Addframe, text="Categoria:", text_color=LETRAS).pack()
+CategAdd = criar_campo(Addframe)
+CategAdd.pack(pady=5)
+
+ctk.CTkLabel(Addframe, text="Preço:", text_color=LETRAS).pack()
+PrecoAdd = criar_campo(Addframe)
+PrecoAdd.pack(pady=5)
+
+ctk.CTkLabel(Addframe, text="Quantidade:", text_color=LETRAS).pack()
+QuantAdd = criar_campo(Addframe)
+QuantAdd.pack(pady=5)
+
+criar_botao(
+    Addframe,
+    "Adicionar",
+    addLivro
+).pack(pady=8)
+
+criar_botao(
+    Addframe,
+    "Voltar",
+    voltar
+).pack(pady=8)
+
+
+# ==========================================
+# REMOVER LIVRO
+# ==========================================
+
+delFrame = ctk.CTkFrame(
+    janela,
+    fg_color=FUNDO
+)
+
+criar_titulo(
+    delFrame,
+    "Deletar Livro"
+).pack(pady=25)
+
+ctk.CTkLabel(
+    delFrame,
+    text="ID / Nome do livro:",
+    text_color=LETRAS
+).pack()
+
+LivroDel = criar_campo(delFrame)
+LivroDel.pack(pady=8)
+
+criar_botao(
+    delFrame,
+    "Deletar",
+    delLivro
+).pack(pady=8)
+
+criar_botao(
+    delFrame,
+    "Voltar",
+    voltar
+).pack(pady=8)
+
+
+# ==========================================
+# BUSCAR LIVRO
+# ==========================================
+
+BuscFrame = ctk.CTkFrame(
+    janela,
+    fg_color=FUNDO
+)
+
+criar_titulo(
+    BuscFrame,
+    "Buscar Livros"
+).pack(pady=20)
+
+barraBusca = criar_campo(
+    BuscFrame,
+    "Nome do livro"
+)
+barraBusca.pack(pady=8)
+
+criar_botao(
+    BuscFrame,
+    "Buscar",
+    BuscarL
+).pack(pady=8)
 
 TabelaLivro = ttk.Treeview(
     BuscFrame,
-    columns=("ID","TITULO","AUTOR","CATEGORIA","PREÇO","QUANTIDADE"),
+    columns=("ID", "TITULO", "AUTOR", "CATEGORIA", "PREÇO", "QUANTIDADE"),
     show="headings"
 )
-TabelaLivro.pack()
 
-TabelaLivro.heading("ID", text="ID")
-TabelaLivro.heading("TITULO", text="TITULO")
-TabelaLivro.heading("AUTOR", text="AUTOR")
-TabelaLivro.heading("CATEGORIA", text="CATEGORIA")
-TabelaLivro.heading("PREÇO", text="PREÇO")
-TabelaLivro.heading("QUANTIDADE", text="QUANTIDADE")
+TabelaLivro.pack(
+    fill="both",
+    expand=True,
+    padx=20,
+    pady=15
+)
 
-TabelaLivro.column("ID",width=50) 
+for coluna in ("ID", "TITULO", "AUTOR", "CATEGORIA", "PREÇO", "QUANTIDADE"):
+    TabelaLivro.heading(coluna, text=coluna)
+
+TabelaLivro.column("ID", width=50)
 TabelaLivro.column("TITULO", width=200)
 TabelaLivro.column("AUTOR", width=150)
-TabelaLivro.column("CATEGORIA", width=120 )
+TabelaLivro.column("CATEGORIA", width=120)
 TabelaLivro.column("PREÇO", width=100)
 TabelaLivro.column("QUANTIDADE", width=100)
 
+criar_botao(
+    BuscFrame,
+    "Voltar",
+    voltar
+).pack(pady=8)
 
-# atualizar cadastro
 
-UpdFrame = tk.Frame(janela)
+# ==========================================
+# FRAME VENDA
+# ==========================================
 
-tk.Label(UpdFrame, text="Nome do livro:").pack()
-TituloUpd = tk.Entry(UpdFrame)
-TituloUpd.pack()
+VendaFrame = ctk.CTkFrame(
+    janela,
+    fg_color=FUNDO
+)
 
-tk.Label(UpdFrame, text="Nome do autor:").pack()
-AutorUpd = tk.Entry(UpdFrame)
-AutorUpd.pack()
+criar_titulo(
+    VendaFrame,
+    "Realizar Venda"
+).pack(pady=20)
 
-tk.Label(UpdFrame, text="Categoria:").pack()
-CategUpd = tk.Entry(UpdFrame)
-CategUpd.pack()
+idVenda = criar_campo(
+    VendaFrame,
+    "ID do livro"
+)
+idVenda.pack(pady=8)
 
-tk.Label(UpdFrame, text="Preço:").pack()
-PrecoUpd = tk.Entry(UpdFrame)
-PrecoUpd.pack()
+criar_botao(
+    VendaFrame,
+    "Buscar",
+    lambda: BuscaVenda(idVenda)
+).pack(pady=8)
 
-tk.Label(UpdFrame, text="Quantidade:").pack()
-QuantUpd = tk.Entry(UpdFrame)
-QuantUpd.pack()
+ValorTotal = ctk.CTkLabel(
+    VendaFrame,
+    text="Total: R$ 0.00",
+    text_color=LETRAS,
+    font=("Arial", 18, "bold")
+)
+ValorTotal.pack(pady=10)
 
-tk.Label(UpdFrame, text="ID:").pack()
-IdUpd = tk.Entry(UpdFrame)
-IdUpd.pack()
+criar_botao(
+    VendaFrame,
+    "Vender",
+    Venderlivro
+).pack(pady=8)
 
-Upd = tk.Button(UpdFrame, text="Atualizar", command = updLivro)
-Upd.pack()
+TabelaLivroVenda = ttk.Treeview(
+    VendaFrame,
+    columns=("ID", "TITULO", "AUTOR", "CATEGORIA", "PREÇO", "QUANTIDADE"),
+    show="headings"
+)
 
-Btvoltar = tk.Button(UpdFrame, text="voltar", command = voltar)
-Btvoltar.pack()
+TabelaLivroVenda.pack(
+    fill="both",
+    expand=True,
+    padx=20,
+    pady=15
+)
 
-# HISTORICO DE VENDAS
+for coluna in ("ID", "TITULO", "AUTOR", "CATEGORIA", "PREÇO", "QUANTIDADE"):
+    TabelaLivroVenda.heading(coluna, text=coluna)
 
-histFrame = tk.Frame(janela)
+TabelaLivroVenda.column("ID", width=50)
+TabelaLivroVenda.column("TITULO", width=200)
+TabelaLivroVenda.column("AUTOR", width=150)
+TabelaLivroVenda.column("CATEGORIA", width=120)
+TabelaLivroVenda.column("PREÇO", width=100)
+TabelaLivroVenda.column("QUANTIDADE", width=100)
+
+criar_botao(
+    VendaFrame,
+    "Voltar",
+    voltar
+).pack(pady=8)
+
+
+# ==========================================
+# ATUALIZAR CADASTRO
+# ==========================================
+
+UpdFrame = ctk.CTkFrame(
+    janela,
+    fg_color=FUNDO
+)
+
+criar_titulo(
+    UpdFrame,
+    "Atualizar Cadastro"
+).pack(pady=20)
+
+ctk.CTkLabel(UpdFrame, text="Nome do livro:", text_color=LETRAS).pack()
+TituloUpd = criar_campo(UpdFrame)
+TituloUpd.pack(pady=5)
+
+ctk.CTkLabel(UpdFrame, text="Nome do autor:", text_color=LETRAS).pack()
+AutorUpd = criar_campo(UpdFrame)
+AutorUpd.pack(pady=5)
+
+ctk.CTkLabel(UpdFrame, text="Categoria:", text_color=LETRAS).pack()
+CategUpd = criar_campo(UpdFrame)
+CategUpd.pack(pady=5)
+
+ctk.CTkLabel(UpdFrame, text="Preço:", text_color=LETRAS).pack()
+PrecoUpd = criar_campo(UpdFrame)
+PrecoUpd.pack(pady=5)
+
+ctk.CTkLabel(UpdFrame, text="Quantidade:", text_color=LETRAS).pack()
+QuantUpd = criar_campo(UpdFrame)
+QuantUpd.pack(pady=5)
+
+ctk.CTkLabel(UpdFrame, text="ID:", text_color=LETRAS).pack()
+IdUpd = criar_campo(UpdFrame)
+IdUpd.pack(pady=5)
+
+criar_botao(
+    UpdFrame,
+    "Atualizar",
+    updLivro
+).pack(pady=8)
+
+criar_botao(
+    UpdFrame,
+    "Voltar",
+    voltar
+).pack(pady=8)
+
+
+# ==========================================
+# HISTÓRICO DE VENDAS
+# ==========================================
+
+histFrame = ctk.CTkFrame(
+    janela,
+    fg_color=FUNDO
+)
+
+criar_titulo(
+    histFrame,
+    "Histórico de Vendas"
+).pack(pady=25)
 
 TabelaLivroHisto = ttk.Treeview(
     histFrame,
-    columns=("ID","ID_Vendedor","TITULOS","PRECO_TOTAL","DATA"),
+    columns=("ID", "ID_Vendedor", "TITULOS", "PRECO_TOTAL", "DATA"),
     show="headings"
 )
-TabelaLivroHisto.pack()
+
+TabelaLivroHisto.pack(
+    fill="both",
+    expand=True,
+    padx=20,
+    pady=15
+)
 
 TabelaLivroHisto.heading("ID", text="ID")
 TabelaLivroHisto.heading("ID_Vendedor", text="ID_Vendedor")
@@ -352,10 +768,40 @@ TabelaLivroHisto.heading("TITULOS", text="TITULOS")
 TabelaLivroHisto.heading("PRECO_TOTAL", text="PRECO TOTAL")
 TabelaLivroHisto.heading("DATA", text="DATA")
 
-TabelaLivroHisto.column("ID", width=50 )
-TabelaLivroHisto.column("ID_Vendedor", width=50 )
+TabelaLivroHisto.column("ID", width=50)
+TabelaLivroHisto.column("ID_Vendedor", width=50)
 TabelaLivroHisto.column("TITULOS", width=200)
-TabelaLivroHisto.column("PRECO_TOTAL", width=50 )
-TabelaLivroHisto.column("DATA", width=50)
+TabelaLivroHisto.column("PRECO_TOTAL", width=100)
+TabelaLivroHisto.column("DATA", width=100)
+
+criar_botao(
+    histFrame,
+    "Voltar",
+    voltar
+).pack(pady=8)
+
+
+# ==========================================
+# LISTA DE TELAS
+# ==========================================
+
+todas_telas = [
+    loginFrame,
+    main,
+    Addframe,
+    delFrame,
+    BuscFrame,
+    VendaFrame,
+    UpdFrame,
+    histFrame
+]
+
+
+# ==========================================
+# INICIAR PROGRAMA
+# ==========================================
+
+tipo_usuario = None
 
 janela.mainloop()
+
