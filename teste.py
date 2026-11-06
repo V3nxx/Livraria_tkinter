@@ -12,7 +12,9 @@ from main import (
     Verificar_Tipo_Login,
     Buscar_Livro_venda,
     Vender_livro,
-    adicionar_Histo
+    adicionar_Histo,
+    Buscar_Historico,
+    adicionar_usuario
 )
 
 # ==========================================
@@ -103,6 +105,7 @@ def voltar():
 def menuHist():
 
     esconder_telas()
+    PesquisarHisto()
     histFrame.pack(fill="both", expand=True)
 
 
@@ -135,6 +138,10 @@ def menuVenda():
     esconder_telas()
     VendaFrame.pack(fill="both", expand=True)
 
+def menuUser():
+
+    esconder_telas()
+    AddUser.pack(fill="both", expand=True)
 
 # ==========================================
 # MENU PRINCIPAL CENTRALIZADO
@@ -169,7 +176,8 @@ def criar_menu():
             ("Deletar", menuDel),
             ("Buscar", menuBusc),
             ("Atualizar Cadastro", menuUpd),
-            ("Historico de vendas", menuHist)
+            ("Historico de vendas", menuHist),
+            ("Cadastrar usuario", menuUser)
         ]
 
     elif tipo_usuario == "Funcionario":
@@ -190,6 +198,12 @@ def criar_menu():
             comando
         ).pack(pady=8)
 
+    criar_botao(
+        centro,
+        "Sair",
+        logout
+    ).pack(pady=8)
+
 
 # ==========================================
 # LOGIN
@@ -197,7 +211,7 @@ def criar_menu():
 
 def VerificarLogin():
 
-    global tipo_usuario
+    global tipo_usuario, usuario_logado
 
     usuario = Usuario.get()
     senha = Senha.get()
@@ -207,6 +221,7 @@ def VerificarLogin():
     if resultado == 1:
 
         tipo_usuario = Verificar_Tipo_Login(usuario)
+        usuario_logado = usuario
 
         esconder_telas()
 
@@ -219,6 +234,34 @@ def VerificarLogin():
         loginErro.configure(
             text="Usuário ou senha incorretos!"
         )
+
+
+# ==========================================
+# LOGOUT
+# ==========================================
+
+def logout():
+
+    global tipo_usuario, usuario_logado, precoTotal
+
+    tipo_usuario = None
+    usuario_logado = None
+    precoTotal = 0
+
+    # limpa os campos do login
+    Usuario.delete(0, "end")
+    Senha.delete(0, "end")
+    loginErro.configure(text="")
+
+    # limpa as tabelas e o total para o proximo usuario nao ver nada
+    for tabela in (TabelaLivro, TabelaLivroVenda, TabelaLivroHisto):
+        for item in tabela.get_children():
+            tabela.delete(item)
+
+    ValorTotal.configure(text="Total: R$ 0.00")
+
+    esconder_telas()
+    loginFrame.pack(fill="both", expand=True)
 
 
 # ==========================================
@@ -357,13 +400,30 @@ def Venderlivro():
         )
 
         livro_id = livro[0]
+        preco = float(livro[4])
+        quantidade = int(livro[5])
 
-        Vender_livro(livro_id)
+        if quantidade > 0:
 
-    for item in TabelaLivroVenda.get_children():
-        TabelaLivroVenda.delete(item)
-        adicionar_Histo()
-        
+            Vender_livro(livro_id)
+
+            # salva no historico: livro, preco unitario e quem vendeu
+            adicionar_Histo(livro_id, preco, usuario_logado)
+
+        else:
+            aviso = ctk.CTkToplevel(janela)
+            aviso.title("Aviso")
+            aviso.geometry("400x300")
+
+            avisoTx = ctk.CTkLabel(aviso, text="Não possui estoque do livro")
+            avisoTx.pack()
+
+
+            aviso.mainloop()
+  
+
+        for item in TabelaLivroVenda.get_children():
+            TabelaLivroVenda.delete(item)
 
 
     precoTotal = 0
@@ -371,6 +431,48 @@ def Venderlivro():
     ValorTotal.configure(
         text="Total: R$ 0.00"
     )
+
+
+# ==========================================
+# HISTÓRICO DE VENDAS (PESQUISA)
+# ==========================================
+
+def PesquisarHisto():
+
+    venda_id = idVendaHisto.get().strip()
+    data = dataHisto.get().strip()
+    vendedor = vendedorHisto.get().strip()
+
+    resultados = Buscar_Historico(venda_id, data, vendedor)
+
+    for item in TabelaLivroHisto.get_children():
+        TabelaLivroHisto.delete(item)
+
+    for registro in resultados:
+
+        TabelaLivroHisto.insert(
+            "",
+            tk.END,
+            values=registro
+        )
+
+# ==========================================
+# ADICIONAR USUARIO
+# ==========================================
+
+def addUser():
+    usuario = UserAdd.get()
+    senha = SenhaAdd.get()
+    tipo = TipoAdd.get()
+
+    adicionar_usuario(
+        usuario,
+        senha,
+        tipo
+    )
+
+    voltar()
+
 
 
 # ==========================================
@@ -749,9 +851,45 @@ criar_titulo(
     "Histórico de Vendas"
 ).pack(pady=25)
 
+filtrosHisto = ctk.CTkFrame(
+    histFrame,
+    fg_color="transparent"
+)
+
+filtrosHisto.pack(pady=5)
+
+idVendaHisto = criar_campo(
+    filtrosHisto,
+    "ID da venda"
+)
+idVendaHisto.configure(width=180)
+idVendaHisto.pack(side="left", padx=5)
+
+dataHisto = criar_campo(
+    filtrosHisto,
+    "Data: dd/mm/aaaa ou mm/aaaa"
+)
+dataHisto.configure(width=230)
+dataHisto.pack(side="left", padx=5)
+
+vendedorHisto = criar_campo(
+    filtrosHisto,
+    "Vendedor"
+)
+vendedorHisto.configure(width=180)
+vendedorHisto.pack(side="left", padx=5)
+
+btnPesquisarHisto = criar_botao(
+    filtrosHisto,
+    "Pesquisar",
+    PesquisarHisto
+)
+btnPesquisarHisto.configure(width=150)
+btnPesquisarHisto.pack(side="left", padx=5)
+
 TabelaLivroHisto = ttk.Treeview(
     histFrame,
-    columns=("ID", "ID_Vendedor", "TITULOS", "PRECO_TOTAL", "DATA"),
+    columns=("ID", "LIVRO", "ID_Vendedor", "PRECO_UNIT", "DATA"),
     show="headings"
 )
 
@@ -762,20 +900,57 @@ TabelaLivroHisto.pack(
     pady=15
 )
 
-TabelaLivroHisto.heading("ID", text="ID")
-TabelaLivroHisto.heading("ID_Vendedor", text="ID_Vendedor")
-TabelaLivroHisto.heading("TITULOS", text="TITULOS")
-TabelaLivroHisto.heading("PRECO_TOTAL", text="PRECO TOTAL")
+TabelaLivroHisto.heading("ID", text="ID DA VENDA")
+TabelaLivroHisto.heading("LIVRO", text="LIVRO")
+TabelaLivroHisto.heading("ID_Vendedor", text="ID DO VENDEDOR")
+TabelaLivroHisto.heading("PRECO_UNIT", text="PREÇO UNITÁRIO")
 TabelaLivroHisto.heading("DATA", text="DATA")
 
-TabelaLivroHisto.column("ID", width=50)
-TabelaLivroHisto.column("ID_Vendedor", width=50)
-TabelaLivroHisto.column("TITULOS", width=200)
-TabelaLivroHisto.column("PRECO_TOTAL", width=100)
-TabelaLivroHisto.column("DATA", width=100)
+TabelaLivroHisto.column("ID", width=80)
+TabelaLivroHisto.column("LIVRO", width=300)
+TabelaLivroHisto.column("ID_Vendedor", width=130)
+TabelaLivroHisto.column("PRECO_UNIT", width=120)
+TabelaLivroHisto.column("DATA", width=150)
 
 criar_botao(
     histFrame,
+    "Voltar",
+    voltar
+).pack(pady=8)
+
+# ==========================================
+# FRAME DE CADASTRO DE USUARIO
+# ==========================================
+AddUser = ctk.CTkFrame(
+    janela,
+    fg_color=FUNDO
+)
+
+criar_titulo(
+    AddUser,
+    "Cadastrar usuario"
+).pack(pady=20)
+
+ctk.CTkLabel(AddUser, text="Nome do usúario", text_color=LETRAS).pack()
+UserAdd = criar_campo(AddUser)
+UserAdd.pack(pady=5)
+
+ctk.CTkLabel(AddUser, text="Senha do usuario", text_color=LETRAS).pack()
+SenhaAdd = criar_campo(AddUser)
+SenhaAdd.pack(pady=5)
+
+ctk.CTkLabel(AddUser, text="Tipo do usuario", text_color=LETRAS).pack()
+TipoAdd = criar_campo(AddUser)
+TipoAdd.pack(pady=5)
+
+criar_botao(
+    AddUser,
+    "Adicionar",
+    addUser
+).pack(pady=8)
+
+criar_botao(
+    AddUser,
     "Voltar",
     voltar
 ).pack(pady=8)
@@ -793,7 +968,8 @@ todas_telas = [
     BuscFrame,
     VendaFrame,
     UpdFrame,
-    histFrame
+    histFrame,
+    AddUser
 ]
 
 
@@ -802,6 +978,8 @@ todas_telas = [
 # ==========================================
 
 tipo_usuario = None
+usuario_logado = None
+
 
 janela.mainloop()
 

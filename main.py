@@ -1,4 +1,4 @@
-from sql import adicionarLivro, deletarLivro, buscarLivro, atualizarLivro, verificarLogin, verificarTipoLogin, buscarLivroVenda, Venderlivro, adicionarHisto
+from sql import adicionarLivro, deletarLivro, buscarLivro, atualizarLivro, verificarLogin, verificarTipoLogin, buscarLivroVenda, Venderlivro, adicionarHisto, buscarHistorico,adicionarUser
 
 def adicionar_Livro(titulo, autor, categoria, preco, quantidade):
     adicionarLivro(titulo, autor, categoria, preco, quantidade)
@@ -34,6 +34,14 @@ def Vender_livro(livro_id):
     Venderlivro(livro_id)
 
 
-def adicionar_Histo():
-    adicionarHisto()
+def adicionar_Histo(livro_id, preco_unit, vendedor_id):
+    adicionarHisto(livro_id, preco_unit, vendedor_id)
+
+
+def Buscar_Historico(venda_id, data, vendedor):
+    resultado = buscarHistorico(venda_id, data, vendedor)
+    return resultado
+
+def adicionar_usuario(usuario,senha,tipo):
+    adicionarUser(usuario,senha,tipo)
 
