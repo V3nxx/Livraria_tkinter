@@ -36,6 +36,17 @@ if "Vendedor_id" not in colunas_vendas:
     cursor.execute("ALTER TABLE Vendas ADD COLUMN Vendedor_id varchar(30)")
     conexao.commit()
 
+# Compra_id agrupa os livros de uma mesma venda (e e o "ID da venda" do historico)
+if "Compra_id" not in colunas_vendas:
+    cursor.execute("ALTER TABLE Vendas ADD COLUMN Compra_id integer")
+    cursor.execute("UPDATE Vendas SET Compra_id = Venda_id")   # vendas antigas: 1 livro = 1 venda
+    conexao.commit()
+
+# Cancelada: 0 = venda concluida, 1 = venda cancelada
+if "Cancelada" not in colunas_vendas:
+    cursor.execute("ALTER TABLE Vendas ADD COLUMN Cancelada integer NOT NULL DEFAULT 0")
+    conexao.commit()
+
 
 cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Usuarios (
@@ -175,17 +186,53 @@ def Venderlivro(livro_id):
 
     conexao.commit()
 
+# Gera o id da proxima venda (todos os livros da mesma venda usam o mesmo id)
+
+
+def novaCompraId():
+
+    cursor.execute("SELECT COALESCE(MAX(Compra_id), 0) + 1 FROM Vendas")
+
+    return cursor.fetchone()[0]
+
+
 # Para salvar uma venda no historico (uma linha por livro vendido)
 
 
-def adicionarHisto(livro_id, Preco_unit, Vendedor_id):
+def adicionarHisto(livro_id, Preco_unit, Vendedor_id, Compra_id):
 
     Date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     cursor.execute("""
-    INSERT INTO Vendas (livro_id, Preco_unit, Date, Vendedor_id)
-    VALUES (?, ?, ?, ?)
-    """, (livro_id, Preco_unit, Date, Vendedor_id))
+    INSERT INTO Vendas (livro_id, Preco_unit, Date, Vendedor_id, Compra_id)
+    VALUES (?, ?, ?, ?, ?)
+    """, (livro_id, Preco_unit, Date, Vendedor_id, Compra_id))
+
+    conexao.commit()
+
+
+# Para cancelar uma venda: devolve os livros ao estoque e marca como cancelada
+
+
+def cancelarVenda(compra_id):
+
+    cursor.execute("""
+        SELECT livro_id FROM Vendas
+        WHERE Compra_id = ? AND Cancelada = 0
+    """, (compra_id,))
+
+    itens = cursor.fetchall()
+
+    for (livro_id,) in itens:
+        cursor.execute("""
+            UPDATE livros
+            SET Quantidade = Quantidade + 1
+            WHERE livro_id = ?
+        """, (livro_id,))
+
+    cursor.execute("""
+        UPDATE Vendas SET Cancelada = 1 WHERE Compra_id = ?
+    """, (compra_id,))
 
     conexao.commit()
 
@@ -221,39 +268,60 @@ def normalizarData(texto):
 
 
 # Para buscar no historico (filtros vazios = traz tudo)
+# Cada venda volta com: id, vendedor, total, data, status e a lista de livros
 
 
 def buscarHistorico(venda_id="", data="", vendedor=""):
 
     consulta = """
-        SELECT v.Venda_id,
-               COALESCE(l.Titulo, '(livro removido)'),
+        SELECT v.Compra_id,
                v.Vendedor_id,
-               printf('R$ %.2f', v.Preco_unit),
-               strftime('%d/%m/%Y %H:%M', v.Date)
+               printf('R$ %.2f', SUM(v.Preco_unit)),
+               strftime('%d/%m/%Y %H:%M', MIN(v.Date)),
+               CASE WHEN MAX(v.Cancelada) = 1 THEN 'Cancelada' ELSE 'Concluída' END
         FROM Vendas v
-        LEFT JOIN livros l ON l.livro_id = v.livro_id
         WHERE 1 = 1
     """
     parametros = []
 
     if venda_id:
-        consulta += " AND v.Venda_id = ?"
+        consulta += " AND v.Compra_id = ?"
         parametros.append(venda_id)
-
-    if data:
-        consulta += " AND v.Date LIKE ?"
-        parametros.append(f"{normalizarData(data)}%")
 
     if vendedor:
         consulta += " AND v.Vendedor_id LIKE ?"
         parametros.append(f"%{vendedor}%")
 
-    consulta += " ORDER BY v.Venda_id DESC"
+    consulta += " GROUP BY v.Compra_id"
+
+    if data:
+        consulta += " HAVING MIN(v.Date) LIKE ?"
+        parametros.append(f"{normalizarData(data)}%")
+
+    consulta += " ORDER BY v.Compra_id DESC"
 
     cursor.execute(consulta, parametros)
+    vendas = cursor.fetchall()
 
-    return cursor.fetchall()
+    resultado = []
+
+    for compra_id, vendedor_id, total, data_venda, status in vendas:
+
+        cursor.execute("""
+            SELECT COALESCE(l.Titulo, '(livro removido)'),
+                   printf('R$ %.2f', v.Preco_unit)
+            FROM Vendas v
+            LEFT JOIN livros l ON l.livro_id = v.livro_id
+            WHERE v.Compra_id = ?
+            ORDER BY v.Venda_id
+        """, (compra_id,))
+
+        livros = cursor.fetchall()
+
+        resultado.append((compra_id, vendedor_id, total, data_venda, status, livros))
+
+    return resultado
+
 
 def adicionarUser(usuario, senha, tipo):
     cursor.execute("""

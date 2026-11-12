@@ -1,6 +1,6 @@
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import customtkinter as ctk
 
 from main import (
@@ -14,7 +14,9 @@ from main import (
     Vender_livro,
     adicionar_Histo,
     Buscar_Historico,
-    adicionar_usuario
+    adicionar_usuario,
+    Nova_Compra_Id,
+    Cancelar_Venda
 )
 
 # ==========================================
@@ -86,11 +88,67 @@ def criar_titulo(frame, texto):
     )
 
 
+def mostrar_aviso(texto):
+
+    aviso = ctk.CTkToplevel(janela)
+    aviso.title("Aviso")
+    aviso.geometry("400x200")
+    aviso.configure(fg_color=FUNDO)
+    aviso.attributes("-topmost", True)
+
+    ctk.CTkLabel(
+        aviso,
+        text=texto,
+        text_color=LETRAS,
+        font=("Arial", 14),
+        wraplength=350
+    ).pack(pady=25, padx=20)
+
+    criar_botao(
+        aviso,
+        "OK",
+        aviso.destroy
+    ).pack(pady=10)
+
+
 # ==========================================
 # FLUXO DE PÁGINAS
 # ==========================================
 
+def limpar_campos():
+
+    # apaga tudo que foi digitado/listado, para nada ficar salvo ao trocar de tela
+    campos = [
+        Usuario, Senha,
+        TituloAdd, AutorAdd, CategAdd, PrecoAdd, QuantAdd,
+        LivroDel,
+        barraBusca,
+        idVenda,
+        TituloUpd, AutorUpd, CategUpd, PrecoUpd, QuantUpd, IdUpd,
+        idVendaHisto, dataHisto, vendedorHisto,
+        UserAdd, SenhaAdd
+    ]
+
+    for campo in campos:
+        campo.delete(0, "end")
+
+    TipoAdd.set("Funcionario")
+
+    for tabela in (TabelaLivro, TabelaLivroHisto):
+        for item in tabela.get_children():
+            tabela.delete(item)
+
+    limpar_venda()
+
+    loginErro.configure(text="")
+
+    # tira o foco dos campos para o texto de exemplo (placeholder) voltar
+    janela.focus()
+
+
 def esconder_telas():
+
+    limpar_campos()
 
     for frame in todas_telas:
         frame.pack_forget()
@@ -388,9 +446,24 @@ def Valortotal(resultados):
     )
 
 
-def Venderlivro():
-    
+def limpar_venda():
+
     global precoTotal
+
+    for item in TabelaLivroVenda.get_children():
+        TabelaLivroVenda.delete(item)
+
+    precoTotal = 0
+
+    ValorTotal.configure(
+        text="Total: R$ 0.00"
+    )
+
+
+def Venderlivro():
+
+    compra_id = None
+    sem_estoque = []
 
     for item in TabelaLivroVenda.get_children():
 
@@ -401,36 +474,29 @@ def Venderlivro():
 
         livro_id = livro[0]
         preco = float(livro[4])
-        quantidade = int(livro[5])
+
+        # confere o estoque atual no banco (vale tambem se o mesmo livro foi adicionado 2x)
+        atual = Buscar_Livro_venda(livro_id)
+        quantidade = int(atual[5]) if atual else 0
 
         if quantidade > 0:
 
+            # todos os livros da mesma venda usam o mesmo id de venda
+            if compra_id is None:
+                compra_id = Nova_Compra_Id()
+
             Vender_livro(livro_id)
 
-            # salva no historico: livro, preco unitario e quem vendeu
-            adicionar_Histo(livro_id, preco, usuario_logado)
+            # salva no historico: livro, preco unitario, quem vendeu e a venda
+            adicionar_Histo(livro_id, preco, usuario_logado, compra_id)
 
         else:
-            aviso = ctk.CTkToplevel(janela)
-            aviso.title("Aviso")
-            aviso.geometry("400x300")
+            sem_estoque.append(livro[1])
 
-            avisoTx = ctk.CTkLabel(aviso, text="Não possui estoque do livro")
-            avisoTx.pack()
+    limpar_venda()
 
-
-            aviso.mainloop()
-  
-
-        for item in TabelaLivroVenda.get_children():
-            TabelaLivroVenda.delete(item)
-
-
-    precoTotal = 0
-
-    ValorTotal.configure(
-        text="Total: R$ 0.00"
-    )
+    if sem_estoque:
+        mostrar_aviso("Não possui estoque do(s) livro(s): " + ", ".join(sem_estoque))
 
 
 # ==========================================
@@ -448,13 +514,65 @@ def PesquisarHisto():
     for item in TabelaLivroHisto.get_children():
         TabelaLivroHisto.delete(item)
 
-    for registro in resultados:
+    for venda in resultados:
 
-        TabelaLivroHisto.insert(
+        compra_id, vendedor_id, total, data_venda, status, livros = venda
+
+        tags = ("cancelada",) if status == "Cancelada" else ()
+
+        # linha principal = a venda (com o valor total)
+        pai = TabelaLivroHisto.insert(
             "",
             tk.END,
-            values=registro
+            values=(compra_id, f"{len(livros)} livro(s)", vendedor_id, "", total, data_venda, status),
+            open=True,
+            tags=tags
         )
+
+        # linhas de baixo = cada livro da venda (com o preco unitario)
+        for titulo, preco in livros:
+
+            TabelaLivroHisto.insert(
+                pai,
+                tk.END,
+                values=("", titulo, "", preco, "", "", ""),
+                tags=tags
+            )
+
+
+def CancelarVendaHisto():
+
+    selecao = TabelaLivroHisto.selection()
+
+    if not selecao:
+        mostrar_aviso("Selecione uma venda para cancelar.")
+        return
+
+    item = selecao[0]
+
+    # se clicou em um livro, usa a venda dele
+    pai = TabelaLivroHisto.parent(item)
+    if pai:
+        item = pai
+
+    valores = TabelaLivroHisto.item(item, "values")
+
+    compra_id = valores[0]
+    status = valores[6]
+
+    if status == "Cancelada":
+        mostrar_aviso("Esta venda já foi cancelada.")
+        return
+
+    confirmar = messagebox.askyesno(
+        "Cancelar venda",
+        f"Cancelar a venda {compra_id}?\nOs livros voltam para o estoque."
+    )
+
+    if confirmar:
+        Cancelar_Venda(compra_id)
+        PesquisarHisto()
+
 
 # ==========================================
 # ADICIONAR USUARIO
@@ -756,6 +874,12 @@ criar_botao(
     Venderlivro
 ).pack(pady=8)
 
+criar_botao(
+    VendaFrame,
+    "Cancelar",
+    limpar_venda
+).pack(pady=8)
+
 TabelaLivroVenda = ttk.Treeview(
     VendaFrame,
     columns=("ID", "TITULO", "AUTOR", "CATEGORIA", "PREÇO", "QUANTIDADE"),
@@ -889,8 +1013,8 @@ btnPesquisarHisto.pack(side="left", padx=5)
 
 TabelaLivroHisto = ttk.Treeview(
     histFrame,
-    columns=("ID", "LIVRO", "ID_Vendedor", "PRECO_UNIT", "DATA"),
-    show="headings"
+    columns=("ID", "LIVRO", "ID_Vendedor", "PRECO_UNIT", "TOTAL", "DATA", "STATUS"),
+    show="tree headings"
 )
 
 TabelaLivroHisto.pack(
@@ -901,16 +1025,30 @@ TabelaLivroHisto.pack(
 )
 
 TabelaLivroHisto.heading("ID", text="ID DA VENDA")
-TabelaLivroHisto.heading("LIVRO", text="LIVRO")
+TabelaLivroHisto.heading("LIVRO", text="LIVROS")
 TabelaLivroHisto.heading("ID_Vendedor", text="ID DO VENDEDOR")
 TabelaLivroHisto.heading("PRECO_UNIT", text="PREÇO UNITÁRIO")
+TabelaLivroHisto.heading("TOTAL", text="TOTAL DA VENDA")
 TabelaLivroHisto.heading("DATA", text="DATA")
+TabelaLivroHisto.heading("STATUS", text="STATUS")
 
-TabelaLivroHisto.column("ID", width=80)
+TabelaLivroHisto.column("#0", width=30, stretch=False)
+TabelaLivroHisto.column("ID", width=90)
 TabelaLivroHisto.column("LIVRO", width=300)
 TabelaLivroHisto.column("ID_Vendedor", width=130)
 TabelaLivroHisto.column("PRECO_UNIT", width=120)
+TabelaLivroHisto.column("TOTAL", width=120)
 TabelaLivroHisto.column("DATA", width=150)
+TabelaLivroHisto.column("STATUS", width=100)
+
+# vendas canceladas aparecem em vermelho
+TabelaLivroHisto.tag_configure("cancelada", foreground="#B91C1C")
+
+criar_botao(
+    histFrame,
+    "Cancelar venda",
+    CancelarVendaHisto
+).pack(pady=8)
 
 criar_botao(
     histFrame,
@@ -940,8 +1078,20 @@ SenhaAdd = criar_campo(AddUser)
 SenhaAdd.pack(pady=5)
 
 ctk.CTkLabel(AddUser, text="Tipo do usuario", text_color=LETRAS).pack()
-TipoAdd = criar_campo(AddUser)
-TipoAdd.pack(pady=5)
+
+TipoAdd = ctk.StringVar(value="Funcionario")
+
+for tipo in ("Admin", "Gerente", "Funcionario"):
+
+    ctk.CTkRadioButton(
+        AddUser,
+        text=tipo,
+        variable=TipoAdd,
+        value=tipo,
+        text_color=LETRAS,
+        fg_color=LETRAS,
+        border_color=LETRAS
+    ).pack(pady=4)
 
 criar_botao(
     AddUser,
