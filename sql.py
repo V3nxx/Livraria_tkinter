@@ -28,7 +28,7 @@ cursor.execute("""
 conexao.commit()
 
 
-# Garante a coluna do vendedor na tabela Vendas
+# Garante as colunas extras da tabela Vendas
 # (tambem atualiza o banco livraria.db que ja foi criado antes)
 colunas_vendas = [c[1] for c in cursor.execute("PRAGMA table_info(Vendas)").fetchall()]
 
@@ -45,6 +45,21 @@ if "Compra_id" not in colunas_vendas:
 # Cancelada: 0 = venda concluida, 1 = venda cancelada
 if "Cancelada" not in colunas_vendas:
     cursor.execute("ALTER TABLE Vendas ADD COLUMN Cancelada integer NOT NULL DEFAULT 0")
+    conexao.commit()
+
+# Titulo: copia do nome do livro salva na propria venda,
+# assim o historico continua mostrando o nome mesmo se o livro for deletado
+if "Titulo" not in colunas_vendas:
+    cursor.execute("ALTER TABLE Vendas ADD COLUMN Titulo varchar(100)")
+    cursor.execute("""
+        UPDATE Vendas
+        SET Titulo = (SELECT l.Titulo FROM livros l WHERE l.livro_id = Vendas.livro_id)
+    """)   # vendas antigas: preenche com o titulo atual (se o livro ainda existir)
+    conexao.commit()
+
+# Qtd: quantas unidades do livro foram vendidas nessa linha
+if "Qtd" not in colunas_vendas:
+    cursor.execute("ALTER TABLE Vendas ADD COLUMN Qtd integer NOT NULL DEFAULT 1")
     conexao.commit()
 
 
@@ -65,10 +80,29 @@ cursor.execute("""
 conexao.commit()
 
 
+# Conversores usados quando o valor vem do banco (pode estar como texto)
+
+
+def _para_float(valor):
+
+    try:
+        return float(str(valor).replace(",", "."))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _para_int(valor):
+
+    try:
+        return int(float(valor))
+    except (TypeError, ValueError):
+        return 0
+
+
 #   FUNÇÕES PARA O TKINTER (C.R.U.D)
 
 
-# Para adicionar algum livro 
+# Para adicionar algum livro
 
 
 def adicionarLivro(titulo, autor, categoria, preco, quantidade):
@@ -77,13 +111,11 @@ def adicionarLivro(titulo, autor, categoria, preco, quantidade):
         INSERT INTO livros (Titulo, Autor, Categoria, Preco, Quantidade)
         VALUES (?, ?, ?, ?, ?)
     """, (titulo, autor, categoria, preco, quantidade))
-    print("Terceiro def")
 
     conexao.commit()
 
 
-
-# Para deletar algum livro
+# Para deletar algum livro (devolve quantos livros foram apagados)
 
 
 def deletarLivro(livro_id):
@@ -91,10 +123,10 @@ def deletarLivro(livro_id):
     cursor.execute("""
         delete from livros where livro_id = ?
     """, (livro_id,))
-    print("Terceiro def")
 
     conexao.commit()
 
+    return cursor.rowcount
 
 
 # Para buscar algum livro(ou livros)
@@ -109,22 +141,14 @@ def buscarLivro(livro):
            OR titulo LIKE ?
     """, (f"%{livro}%", f"%{livro}%", f"%{livro}%"))
 
-    livrosBusc = cursor.fetchall()
-    print("3")
-
-    return livrosBusc
+    return cursor.fetchall()
 
 
-# Para atualizar algum livro
+# Para atualizar algum livro (campos None continuam como estavam)
+# Devolve quantos livros foram atualizados (0 = ID nao existe)
 
 
-def atualizarLivro(Titulo=None, Autor=None, Categoria=None, Preco=None, Quantidade=None, livro_id=None):
-
-    Titulo = Titulo  if Titulo else None
-    Autor = Autor  if Autor else None
-    Categoria = Categoria  if Categoria else None
-    Preco = Preco  if Preco else None
-    Quantidade = Quantidade  if Quantidade else None
+def atualizarLivro(titulo, autor, categoria, preco, quantidade, livro_id):
 
     cursor.execute("""
         update livros
@@ -134,57 +158,46 @@ def atualizarLivro(Titulo=None, Autor=None, Categoria=None, Preco=None, Quantida
             Preco = COALESCE(?, Preco),
             Quantidade = COALESCE(?, Quantidade)
         where livro_id = ?
-    """, (Titulo, Autor, Categoria, Preco, Quantidade,livro_id))
+    """, (titulo, autor, categoria, preco, quantidade, livro_id))
 
     conexao.commit()
 
-def verificarLogin(usuario,senha):
+    return cursor.rowcount
+
+
+def verificarLogin(usuario, senha):
+
     cursor.execute("""
     SELECT EXISTS (
     SELECT 1
     FROM Usuarios
     WHERE usuario = ?
         and senha = ?) as login_valido
-        """, (usuario,senha))
-    
-    Resultado = cursor.fetchone()
-    return Resultado[0]
+        """, (usuario, senha))
+
+    return cursor.fetchone()[0]
+
 
 def verificarTipoLogin(usuario):
+
     cursor.execute("""
     select tipo from Usuarios
-    where usuario = ?""",(usuario,))
+    where usuario = ?""", (usuario,))
 
-    Resultado = cursor.fetchone()
-    return Resultado[0]
+    resultado = cursor.fetchone()
+
+    return resultado[0] if resultado else None
+
 
 def buscarLivroVenda(livro_id):
+
     cursor.execute("""
         SELECT * FROM livros
         WHERE livro_id = ?
     """, (livro_id,))
 
-    resultado = cursor.fetchone()
-    print("3")
+    return cursor.fetchone()
 
-    return resultado
-
-def verificarTipoLogin(usuario):
-    cursor.execute("""
-    select tipo from Usuarios
-    where usuario = ?""",(usuario,))
-
-    Resultado = cursor.fetchone()
-    return Resultado[0]
-
-def Venderlivro(livro_id):
-    cursor.execute("""
-    update livros
-        set Quantidade = Quantidade - 1
-        where livro_id = ?
-    """,(livro_id,))
-
-    conexao.commit()
 
 # Gera o id da proxima venda (todos os livros da mesma venda usam o mesmo id)
 
@@ -196,19 +209,72 @@ def novaCompraId():
     return cursor.fetchone()[0]
 
 
-# Para salvar uma venda no historico (uma linha por livro vendido)
+# Para registrar uma venda inteira de uma vez
+# itens = [(livro_id, quantidade), ...]
+# Confere o estoque de TODOS antes de vender qualquer coisa. Se faltar estoque,
+# nada e vendido. Tudo (baixa no estoque + historico) acontece numa transacao so.
+# Devolve (True, (compra_id, total)) ou (False, [lista de problemas])
 
 
-def adicionarHisto(livro_id, Preco_unit, Vendedor_id, Compra_id):
+def registrarVenda(itens, vendedor_id):
 
-    Date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
 
-    cursor.execute("""
-    INSERT INTO Vendas (livro_id, Preco_unit, Date, Vendedor_id, Compra_id)
-    VALUES (?, ?, ?, ?, ?)
-    """, (livro_id, Preco_unit, Date, Vendedor_id, Compra_id))
+        problemas = []
+        validos = []
 
-    conexao.commit()
+        for livro_id, qtd in itens:
+
+            cursor.execute("""
+                SELECT Titulo, Preco, Quantidade FROM livros
+                WHERE livro_id = ?
+            """, (livro_id,))
+
+            livro = cursor.fetchone()
+
+            if livro is None:
+                problemas.append(f"O livro de ID {livro_id} não existe mais")
+                continue
+
+            titulo, preco, estoque = livro
+            estoque = _para_int(estoque)
+
+            if estoque < qtd:
+                problemas.append(f"{titulo} (pedido: {qtd}, em estoque: {estoque})")
+            else:
+                validos.append((livro_id, titulo, _para_float(preco), qtd))
+
+        if problemas:
+            return False, problemas
+
+        compra_id = novaCompraId()
+        data = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        total = 0.0
+
+        for livro_id, titulo, preco, qtd in validos:
+
+            cursor.execute("""
+                UPDATE livros
+                SET Quantidade = Quantidade - ?
+                WHERE livro_id = ?
+            """, (qtd, livro_id))
+
+            cursor.execute("""
+                INSERT INTO Vendas (livro_id, Titulo, Preco_unit, Qtd, Date, Vendedor_id, Compra_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (livro_id, titulo, preco, qtd, data, vendedor_id, compra_id))
+
+            total += preco * qtd
+
+        conexao.commit()
+
+        return True, (compra_id, total)
+
+    except sql.Error:
+
+        conexao.rollback()
+
+        return False, ["Erro ao gravar a venda no banco de dados."]
 
 
 # Para cancelar uma venda: devolve os livros ao estoque e marca como cancelada
@@ -217,18 +283,18 @@ def adicionarHisto(livro_id, Preco_unit, Vendedor_id, Compra_id):
 def cancelarVenda(compra_id):
 
     cursor.execute("""
-        SELECT livro_id FROM Vendas
+        SELECT livro_id, Qtd FROM Vendas
         WHERE Compra_id = ? AND Cancelada = 0
     """, (compra_id,))
 
     itens = cursor.fetchall()
 
-    for (livro_id,) in itens:
+    for livro_id, qtd in itens:
         cursor.execute("""
             UPDATE livros
-            SET Quantidade = Quantidade + 1
+            SET Quantidade = Quantidade + ?
             WHERE livro_id = ?
-        """, (livro_id,))
+        """, (qtd, livro_id))
 
     cursor.execute("""
         UPDATE Vendas SET Cancelada = 1 WHERE Compra_id = ?
@@ -269,6 +335,7 @@ def normalizarData(texto):
 
 # Para buscar no historico (filtros vazios = traz tudo)
 # Cada venda volta com: id, vendedor, total, data, status e a lista de livros
+# (cada livro: titulo, quantidade, preco unitario)
 
 
 def buscarHistorico(venda_id="", data="", vendedor=""):
@@ -276,7 +343,7 @@ def buscarHistorico(venda_id="", data="", vendedor=""):
     consulta = """
         SELECT v.Compra_id,
                v.Vendedor_id,
-               printf('R$ %.2f', SUM(v.Preco_unit)),
+               printf('R$ %.2f', SUM(v.Preco_unit * v.Qtd)),
                strftime('%d/%m/%Y %H:%M', MIN(v.Date)),
                CASE WHEN MAX(v.Cancelada) = 1 THEN 'Cancelada' ELSE 'Concluída' END
         FROM Vendas v
@@ -307,8 +374,10 @@ def buscarHistorico(venda_id="", data="", vendedor=""):
 
     for compra_id, vendedor_id, total, data_venda, status in vendas:
 
+        # usa o titulo salvo na venda; so cai no livro atual / "removido" em vendas muito antigas
         cursor.execute("""
-            SELECT COALESCE(l.Titulo, '(livro removido)'),
+            SELECT COALESCE(v.Titulo, l.Titulo, '(livro removido)'),
+                   v.Qtd,
                    printf('R$ %.2f', v.Preco_unit)
             FROM Vendas v
             LEFT JOIN livros l ON l.livro_id = v.livro_id
@@ -323,10 +392,74 @@ def buscarHistorico(venda_id="", data="", vendedor=""):
     return resultado
 
 
+#   USUARIOS
+
+
+# Devolve True se cadastrou, False se o usuario ja existe
+
+
 def adicionarUser(usuario, senha, tipo):
+
+    try:
+        cursor.execute("""
+            INSERT INTO Usuarios (usuario, senha, tipo)
+            VALUES (?, ?, ?)
+        """, (usuario, senha, tipo))
+
+        conexao.commit()
+
+        return True
+
+    except sql.IntegrityError:
+
+        conexao.rollback()
+
+        return False
+
+
+# A senha nunca volta na listagem
+
+
+def listarUsuarios():
+
+    cursor.execute("SELECT usuario, tipo FROM Usuarios ORDER BY usuario")
+
+    return cursor.fetchall()
+
+
+# senha None = mantem a senha atual
+
+
+def atualizarUsuario(usuario, senha, tipo):
+
     cursor.execute("""
-    insert into usuarios ( usuario, senha, tipo)
-    values (?, ?, ?)
-""", (usuario, senha, tipo))
+        UPDATE Usuarios
+        SET senha = COALESCE(?, senha),
+            tipo = ?
+        WHERE usuario = ?
+    """, (senha, tipo, usuario))
 
     conexao.commit()
+
+    return cursor.rowcount
+
+
+def removerUsuario(usuario):
+
+    cursor.execute("DELETE FROM Usuarios WHERE usuario = ?", (usuario,))
+
+    conexao.commit()
+
+    return cursor.rowcount
+
+
+def contarAdmins():
+
+    cursor.execute("SELECT COUNT(*) FROM Usuarios WHERE tipo = 'Admin'")
+
+    return cursor.fetchone()[0]
+
+
+def existeAdmin():
+
+    return contarAdmins() > 0

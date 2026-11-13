@@ -1,4 +1,4 @@
-
+import re
 import tkinter as tk
 from tkinter import ttk, messagebox
 import customtkinter as ctk
@@ -11,12 +11,14 @@ from main import (
     verificar_login,
     Verificar_Tipo_Login,
     Buscar_Livro_venda,
-    Vender_livro,
-    adicionar_Histo,
+    Finalizar_Venda,
     Buscar_Historico,
+    Cancelar_Venda,
     adicionar_usuario,
-    Nova_Compra_Id,
-    Cancelar_Venda
+    listar_usuarios,
+    atualizar_usuario,
+    remover_usuario,
+    existe_admin
 )
 
 # ==========================================
@@ -35,11 +37,63 @@ janela = ctk.CTk()
 janela.title("Sistema de Livraria")
 janela.attributes("-fullscreen", True)
 
+# ==========================================
+# PERMISSÕES (o que cada tipo de usuário pode acessar)
+# ==========================================
+
+PERMISSOES = {
+    "Admin": ("Cadastrar", "Deletar", "Buscar", "Atualizar", "Historico", "Venda", "Usuarios"),
+    "Gerente": ("Cadastrar", "Deletar", "Buscar", "Atualizar", "Historico"),
+    "Funcionario": ("Buscar", "Venda"),
+}
+
+
+def pode(acao):
+
+    return acao in PERMISSOES.get(tipo_usuario, ())
+
+
 # ESC para sair do fullscreen
 janela.bind(
     "<Escape>",
     lambda event: janela.attributes("-fullscreen", False)
 )
+
+
+# ==========================================
+# VALIDAÇÃO DOS CAMPOS NUMÉRICOS
+# (o campo simplesmente não aceita letras nem símbolos)
+# ==========================================
+
+def _valida_preco(texto):
+
+    # ate 7 digitos, e opcionalmente "." ou "," com ate 2 casas
+    return re.fullmatch(r"[0-9]{0,7}([.,][0-9]{0,2})?", texto) is not None
+
+
+def _valida_inteiro(texto):
+
+    return re.fullmatch(r"[0-9]{0,7}", texto) is not None
+
+
+VALIDA_PRECO = (janela.register(_valida_preco), "%P")
+VALIDA_INTEIRO = (janela.register(_valida_inteiro), "%P")
+
+
+def _para_float(valor):
+
+    try:
+        return float(str(valor).replace(",", "."))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _para_int(valor):
+
+    try:
+        return int(float(valor))
+    except (TypeError, ValueError):
+        return 0
 
 
 # ==========================================
@@ -64,7 +118,17 @@ def criar_botao(frame, texto, comando):
     )
 
 
-def criar_campo(frame, placeholder=""):
+# tipo: None (texto livre), "preco" ou "inteiro" (so aceitam numeros)
+# Campos numericos nao usam placeholder (o texto de exemplo seria barrado pela validacao)
+
+def criar_campo(frame, placeholder="", tipo=None):
+
+    extras = {}
+
+    if tipo == "preco":
+        extras = {"validate": "key", "validatecommand": VALIDA_PRECO}
+    elif tipo == "inteiro":
+        extras = {"validate": "key", "validatecommand": VALIDA_INTEIRO}
 
     return ctk.CTkEntry(
         frame,
@@ -74,7 +138,8 @@ def criar_campo(frame, placeholder=""):
         fg_color=BOTAO,
         text_color=LETRAS,
         border_color=LETRAS,
-        corner_radius=8
+        corner_radius=8,
+        **extras
     )
 
 
@@ -92,7 +157,7 @@ def mostrar_aviso(texto):
 
     aviso = ctk.CTkToplevel(janela)
     aviso.title("Aviso")
-    aviso.geometry("400x200")
+    aviso.geometry("460x260")
     aviso.configure(fg_color=FUNDO)
     aviso.attributes("-topmost", True)
 
@@ -101,7 +166,7 @@ def mostrar_aviso(texto):
         text=texto,
         text_color=LETRAS,
         font=("Arial", 14),
-        wraplength=350
+        wraplength=410
     ).pack(pady=25, padx=20)
 
     criar_botao(
@@ -117,13 +182,17 @@ def mostrar_aviso(texto):
 
 def limpar_campos():
 
+    # o campo de usuario fica travado ao editar; precisa destravar para limpar
+    UserAdd.configure(state="normal")
+
     # apaga tudo que foi digitado/listado, para nada ficar salvo ao trocar de tela
     campos = [
         Usuario, Senha,
+        SetupUser, SetupSenha, SetupConfirma,
         TituloAdd, AutorAdd, CategAdd, PrecoAdd, QuantAdd,
         LivroDel,
         barraBusca,
-        idVenda,
+        idVenda, qtdVenda,
         TituloUpd, AutorUpd, CategUpd, PrecoUpd, QuantUpd, IdUpd,
         idVendaHisto, dataHisto, vendedorHisto,
         UserAdd, SenhaAdd
@@ -132,15 +201,18 @@ def limpar_campos():
     for campo in campos:
         campo.delete(0, "end")
 
+    qtdVenda.insert(0, "1")
+
     TipoAdd.set("Funcionario")
 
-    for tabela in (TabelaLivro, TabelaLivroHisto):
+    for tabela in (TabelaLivro, TabelaLivroHisto, TabelaUser):
         for item in tabela.get_children():
             tabela.delete(item)
 
     limpar_venda()
 
     loginErro.configure(text="")
+    setupErro.configure(text="")
 
     # tira o foco dos campos para o texto de exemplo (placeholder) voltar
     janela.focus()
@@ -162,6 +234,9 @@ def voltar():
 
 def menuHist():
 
+    if not pode("Historico"):
+        return
+
     esconder_telas()
     PesquisarHisto()
     histFrame.pack(fill="both", expand=True)
@@ -169,11 +244,17 @@ def menuHist():
 
 def menuAdd():
 
+    if not pode("Cadastrar"):
+        return
+
     esconder_telas()
     Addframe.pack(fill="both", expand=True)
 
 
 def menuDel():
+
+    if not pode("Deletar"):
+        return
 
     esconder_telas()
     delFrame.pack(fill="both", expand=True)
@@ -181,11 +262,17 @@ def menuDel():
 
 def menuBusc():
 
+    if not pode("Buscar"):
+        return
+
     esconder_telas()
     BuscFrame.pack(fill="both", expand=True)
 
 
 def menuUpd():
+
+    if not pode("Atualizar"):
+        return
 
     esconder_telas()
     UpdFrame.pack(fill="both", expand=True)
@@ -193,13 +280,35 @@ def menuUpd():
 
 def menuVenda():
 
+    if not pode("Venda"):
+        return
+
     esconder_telas()
     VendaFrame.pack(fill="both", expand=True)
 
+
 def menuUser():
 
+    if not pode("Usuarios"):
+        return
+
     esconder_telas()
-    AddUser.pack(fill="both", expand=True)
+    listarUsuariosTela()
+    UsersFrame.pack(fill="both", expand=True)
+
+
+# Mostra a primeira tela do programa: se nao existe nenhum Admin no banco,
+# pede para criar um; senao mostra o login
+
+def mostrar_inicio():
+
+    esconder_telas()
+
+    if existe_admin():
+        loginFrame.pack(fill="both", expand=True)
+    else:
+        SetupFrame.pack(fill="both", expand=True)
+
 
 # ==========================================
 # MENU PRINCIPAL CENTRALIZADO
@@ -227,25 +336,19 @@ def criar_menu():
         "Sistema de Livraria"
     ).pack(pady=30)
 
-    if tipo_usuario in ("Admin", "Gerente"):
+    todos = [
+        ("Cadastrar", "Cadastrar", menuAdd),
+        ("Deletar", "Deletar", menuDel),
+        ("Buscar", "Buscar", menuBusc),
+        ("Atualizar Cadastro", "Atualizar", menuUpd),
+        ("Venda", "Venda", menuVenda),
+        ("Historico de vendas", "Historico", menuHist),
+        ("Usuarios", "Usuarios", menuUser)
+    ]
 
-        botoes = [
-            ("Cadastrar", menuAdd),
-            ("Deletar", menuDel),
-            ("Buscar", menuBusc),
-            ("Atualizar Cadastro", menuUpd),
-            ("Historico de vendas", menuHist),
-            ("Cadastrar usuario", menuUser)
-        ]
+    botoes = [(texto, comando) for texto, acao, comando in todos if pode(acao)]
 
-    elif tipo_usuario == "Funcionario":
-
-        botoes = [
-            ("Buscar", menuBusc),
-            ("Venda", menuVenda)
-        ]
-
-    else:
+    if not botoes:
         return
 
     for texto, comando in botoes:
@@ -261,6 +364,30 @@ def criar_menu():
         "Sair",
         logout
     ).pack(pady=8)
+
+
+# ==========================================
+# PRIMEIRO ACESSO (CRIAR ADMINISTRADOR)
+# ==========================================
+
+def criarAdmin():
+
+    usuario = SetupUser.get().strip()
+    senha = SetupSenha.get()
+    confirma = SetupConfirma.get()
+
+    if senha != confirma:
+        setupErro.configure(text="As senhas não coincidem.")
+        return
+
+    ok, msg = adicionar_usuario(usuario, senha, "Admin")
+
+    if not ok:
+        setupErro.configure(text=msg)
+        return
+
+    mostrar_inicio()
+    mostrar_aviso("Conta de administrador criada!\nFaça login para continuar.")
 
 
 # ==========================================
@@ -300,26 +427,13 @@ def VerificarLogin():
 
 def logout():
 
-    global tipo_usuario, usuario_logado, precoTotal
+    global tipo_usuario, usuario_logado
 
     tipo_usuario = None
     usuario_logado = None
-    precoTotal = 0
 
-    # limpa os campos do login
-    Usuario.delete(0, "end")
-    Senha.delete(0, "end")
-    loginErro.configure(text="")
-
-    # limpa as tabelas e o total para o proximo usuario nao ver nada
-    for tabela in (TabelaLivro, TabelaLivroVenda, TabelaLivroHisto):
-        for item in tabela.get_children():
-            tabela.delete(item)
-
-    ValorTotal.configure(text="Total: R$ 0.00")
-
-    esconder_telas()
-    loginFrame.pack(fill="both", expand=True)
+    # mostrar_inicio limpa campos, tabelas e carrinho para o proximo usuario nao ver nada
+    mostrar_inicio()
 
 
 # ==========================================
@@ -328,21 +442,18 @@ def logout():
 
 def addLivro():
 
-    titulo = TituloAdd.get()
-    autor = AutorAdd.get()
-    categoria = CategAdd.get()
-    preco = PrecoAdd.get()
-    quantidade = QuantAdd.get()
-
-    adicionar_Livro(
-        titulo,
-        autor,
-        categoria,
-        preco,
-        quantidade
+    ok, msg = adicionar_Livro(
+        TituloAdd.get(),
+        AutorAdd.get(),
+        CategAdd.get(),
+        PrecoAdd.get(),
+        QuantAdd.get()
     )
 
-    voltar()
+    if ok:
+        voltar()
+    else:
+        mostrar_aviso(msg)
 
 
 # ==========================================
@@ -351,23 +462,19 @@ def addLivro():
 
 def updLivro():
 
-    titulo = TituloUpd.get()
-    autor = AutorUpd.get()
-    categoria = CategUpd.get()
-    preco = PrecoUpd.get()
-    quantidade = QuantUpd.get()
-    id = IdUpd.get()
-
-    Atualizar_livro(
-        titulo,
-        autor,
-        categoria,
-        preco,
-        quantidade,
-        id
+    ok, msg = Atualizar_livro(
+        TituloUpd.get(),
+        AutorUpd.get(),
+        CategUpd.get(),
+        PrecoUpd.get(),
+        QuantUpd.get(),
+        IdUpd.get()
     )
 
-    voltar()
+    if ok:
+        voltar()
+    else:
+        mostrar_aviso(msg)
 
 
 # ==========================================
@@ -376,11 +483,12 @@ def updLivro():
 
 def delLivro():
 
-    livro_id = LivroDel.get()
+    ok, msg = deletar_livro(LivroDel.get())
 
-    deletar_livro(livro_id)
-
-    voltar()
+    if ok:
+        voltar()
+    else:
+        mostrar_aviso(msg)
 
 
 # ==========================================
@@ -406,97 +514,142 @@ def BuscarL():
 
 
 # ==========================================
-# VENDAS
+# VENDAS (CARRINHO)
 # ==========================================
 
-precoTotal = 0
+# livro_id -> {"titulo", "autor", "categoria", "preco", "qtd"}
+carrinho = {}
 
 
-def BuscaVenda(idVenda):
+def atualizar_carrinho():
 
-    livro_id = idVenda.get()
+    for item in TabelaLivroVenda.get_children():
+        TabelaLivroVenda.delete(item)
 
-    resultados = Buscar_Livro_venda(livro_id)
+    total = 0.0
 
-    if resultados:
+    for livro_id, item in carrinho.items():
+
+        subtotal = item["preco"] * item["qtd"]
+        total += subtotal
 
         TabelaLivroVenda.insert(
             "",
             tk.END,
-            values=resultados
+            iid=str(livro_id),
+            values=(
+                livro_id,
+                item["titulo"],
+                item["autor"],
+                item["categoria"],
+                f"{item['preco']:.2f}",
+                item["qtd"],
+                f"{subtotal:.2f}"
+            )
         )
 
-        Valortotal(resultados)
-
-    else:
-
-        print("Erro, ID errado")
-
-
-def Valortotal(resultados):
-
-    global precoTotal
-
-    valor = float(resultados[4])
-
-    precoTotal += valor
-
     ValorTotal.configure(
-        text=f"Total: R$ {precoTotal:.2f}"
+        text=f"Total: R$ {total:.2f}"
     )
 
 
 def limpar_venda():
 
-    global precoTotal
-
-    for item in TabelaLivroVenda.get_children():
-        TabelaLivroVenda.delete(item)
-
-    precoTotal = 0
-
-    ValorTotal.configure(
-        text="Total: R$ 0.00"
-    )
+    carrinho.clear()
+    atualizar_carrinho()
 
 
-def Venderlivro():
+def AdicionarCarrinho():
 
-    compra_id = None
-    sem_estoque = []
+    texto_id = idVenda.get().strip()
+    texto_qtd = qtdVenda.get().strip()
 
-    for item in TabelaLivroVenda.get_children():
+    if not texto_id:
+        mostrar_aviso("Digite o ID do livro.")
+        return
 
-        livro = TabelaLivroVenda.item(
-            item,
-            "values"
+    if not texto_qtd or int(texto_qtd) < 1:
+        mostrar_aviso("Digite uma quantidade maior que zero.")
+        return
+
+    livro_id = int(texto_id)
+    qtd = int(texto_qtd)
+
+    livro = Buscar_Livro_venda(livro_id)
+
+    if not livro:
+        mostrar_aviso("Livro não encontrado. Confira o ID.")
+        return
+
+    estoque = _para_int(livro[5])
+    ja_no_carrinho = carrinho[livro_id]["qtd"] if livro_id in carrinho else 0
+
+    if ja_no_carrinho + qtd > estoque:
+        mostrar_aviso(
+            f"Estoque insuficiente de '{livro[1]}'.\n"
+            f"Em estoque: {estoque}  |  Já no carrinho: {ja_no_carrinho}"
         )
+        return
 
-        livro_id = livro[0]
-        preco = float(livro[4])
+    # mesmo livro de novo = soma na linha que ja existe
+    if livro_id in carrinho:
+        carrinho[livro_id]["qtd"] += qtd
+    else:
+        carrinho[livro_id] = {
+            "titulo": livro[1],
+            "autor": livro[2],
+            "categoria": livro[3],
+            "preco": _para_float(livro[4]),
+            "qtd": qtd
+        }
 
-        # confere o estoque atual no banco (vale tambem se o mesmo livro foi adicionado 2x)
-        atual = Buscar_Livro_venda(livro_id)
-        quantidade = int(atual[5]) if atual else 0
+    atualizar_carrinho()
 
-        if quantidade > 0:
+    idVenda.delete(0, "end")
+    qtdVenda.delete(0, "end")
+    qtdVenda.insert(0, "1")
+    idVenda.focus()
 
-            # todos os livros da mesma venda usam o mesmo id de venda
-            if compra_id is None:
-                compra_id = Nova_Compra_Id()
 
-            Vender_livro(livro_id)
+def RemoverDoCarrinho():
 
-            # salva no historico: livro, preco unitario, quem vendeu e a venda
-            adicionar_Histo(livro_id, preco, usuario_logado, compra_id)
+    selecao = TabelaLivroVenda.selection()
 
-        else:
-            sem_estoque.append(livro[1])
+    if not selecao:
+        mostrar_aviso("Selecione um livro do carrinho para remover.")
+        return
 
-    limpar_venda()
+    for iid in selecao:
+        carrinho.pop(int(iid), None)
 
-    if sem_estoque:
-        mostrar_aviso("Não possui estoque do(s) livro(s): " + ", ".join(sem_estoque))
+    atualizar_carrinho()
+
+
+def FinalizarVenda():
+
+    if not carrinho:
+        mostrar_aviso("O carrinho está vazio.")
+        return
+
+    itens = [(livro_id, item["qtd"]) for livro_id, item in carrinho.items()]
+
+    ok, resultado = Finalizar_Venda(itens, usuario_logado)
+
+    if ok:
+
+        compra_id, total = resultado
+
+        limpar_venda()
+
+        mostrar_aviso(f"Venda {compra_id} concluída!\nTotal: R$ {total:.2f}")
+
+    else:
+
+        # nada foi vendido; o carrinho continua para o funcionario ajustar
+        mostrar_aviso(
+            "Venda não realizada. Sem estoque suficiente:\n\n"
+            + "\n".join(resultado)
+        )
 
 
 # ==========================================
@@ -520,22 +673,24 @@ def PesquisarHisto():
 
         tags = ("cancelada",) if status == "Cancelada" else ()
 
+        quantidade_total = sum(qtd for _, qtd, _ in livros)
+
         # linha principal = a venda (com o valor total)
         pai = TabelaLivroHisto.insert(
             "",
             tk.END,
-            values=(compra_id, f"{len(livros)} livro(s)", vendedor_id, "", total, data_venda, status),
+            values=(compra_id, f"{quantidade_total} livro(s)", vendedor_id, "", total, data_venda, status),
             open=True,
             tags=tags
         )
 
-        # linhas de baixo = cada livro da venda (com o preco unitario)
-        for titulo, preco in livros:
+        # linhas de baixo = cada livro da venda (com quantidade e preco unitario)
+        for titulo, qtd, preco in livros:
 
             TabelaLivroHisto.insert(
                 pai,
                 tk.END,
-                values=("", titulo, "", preco, "", "", ""),
+                values=("", f"{titulo}  (x{qtd})", "", preco, "", "", ""),
                 tags=tags
             )
 
@@ -575,22 +730,129 @@ def CancelarVendaHisto():
 
 
 # ==========================================
-# ADICIONAR USUARIO
+# USUÁRIOS (LISTAR / ADICIONAR / EDITAR / REMOVER)
 # ==========================================
 
-def addUser():
-    usuario = UserAdd.get()
+# None = formulario esta cadastrando; senao guarda o usuario que esta sendo editado
+usuario_editando = None
+
+
+def listarUsuariosTela():
+
+    for item in TabelaUser.get_children():
+        TabelaUser.delete(item)
+
+    for usuario, tipo in listar_usuarios():
+
+        # o nome do usuario e o iid da linha (assim nunca perde zeros a esquerda etc.)
+        TabelaUser.insert(
+            "",
+            tk.END,
+            iid=usuario,
+            values=(usuario, tipo)
+        )
+
+
+def usuario_selecionado():
+
+    selecao = TabelaUser.selection()
+
+    if not selecao:
+        mostrar_aviso("Selecione um usuário na lista.")
+        return None
+
+    return str(selecao[0])
+
+
+def novoUsuario():
+
+    global usuario_editando
+
+    esconder_telas()
+
+    usuario_editando = None
+
+    TituloUserForm.configure(text="Novo usuário")
+    dicaSenha.configure(text="")
+
+    AddUser.pack(fill="both", expand=True)
+
+
+def editarUsuario():
+
+    global usuario_editando
+
+    usuario = usuario_selecionado()
+
+    if usuario is None:
+        return
+
+    tipo = TabelaUser.item(usuario, "values")[1]
+
+    esconder_telas()
+
+    usuario_editando = usuario
+
+    TituloUserForm.configure(text="Editar usuário")
+    dicaSenha.configure(text="Deixe a senha em branco para manter a atual.")
+
+    UserAdd.insert(0, usuario)
+    UserAdd.configure(state="disabled")   # o nome do usuario nao muda
+    TipoAdd.set(str(tipo))
+
+    AddUser.pack(fill="both", expand=True)
+
+
+def salvarUsuario():
+
+    global tipo_usuario
+
     senha = SenhaAdd.get()
     tipo = TipoAdd.get()
 
-    adicionar_usuario(
-        usuario,
-        senha,
-        tipo
+    if usuario_editando is None:
+        ok, msg = adicionar_usuario(UserAdd.get(), senha, tipo)
+    else:
+        ok, msg = atualizar_usuario(usuario_editando, senha, tipo)
+
+    if not ok:
+        mostrar_aviso(msg)
+        return
+
+    # se mudou o proprio tipo, atualiza o menu da sessao atual
+    if usuario_editando is not None and usuario_editando == usuario_logado:
+
+        tipo_usuario = tipo
+        criar_menu()
+
+        if not pode("Usuarios"):
+            voltar()
+            return
+
+    menuUser()
+
+
+def removerUsuarioTela():
+
+    usuario = usuario_selecionado()
+
+    if usuario is None:
+        return
+
+    confirmar = messagebox.askyesno(
+        "Remover usuário",
+        f"Remover o usuário '{usuario}'?"
     )
 
-    voltar()
+    if not confirmar:
+        return
 
+    ok, msg = remover_usuario(usuario, usuario_logado)
+
+    if ok:
+        listarUsuariosTela()
+    else:
+        mostrar_aviso(msg)
 
 
 # ==========================================
@@ -632,8 +894,6 @@ loginFrame = ctk.CTkFrame(
     janela,
     fg_color=FUNDO
 )
-
-loginFrame.pack(fill="both", expand=True)
 
 loginCentro = ctk.CTkFrame(
     loginFrame,
@@ -686,6 +946,74 @@ loginErro.pack()
 
 
 # ==========================================
+# FRAME DE PRIMEIRO ACESSO (CRIAR ADMINISTRADOR)
+# ==========================================
+
+SetupFrame = ctk.CTkFrame(
+    janela,
+    fg_color=FUNDO
+)
+
+setupCentro = ctk.CTkFrame(
+    SetupFrame,
+    fg_color="transparent"
+)
+
+setupCentro.place(
+    relx=0.5,
+    rely=0.5,
+    anchor="center"
+)
+
+criar_titulo(
+    setupCentro,
+    "Primeiro acesso"
+).pack(pady=20)
+
+ctk.CTkLabel(
+    setupCentro,
+    text="Nenhuma conta de administrador foi encontrada.\nCrie uma para continuar.",
+    text_color=LETRAS,
+    font=("Arial", 16),
+    justify="center"
+).pack(pady=10)
+
+SetupUser = criar_campo(
+    setupCentro,
+    "Usuário"
+)
+SetupUser.pack(pady=8)
+
+SetupSenha = criar_campo(
+    setupCentro,
+    "Senha"
+)
+SetupSenha.configure(show="*")
+SetupSenha.pack(pady=8)
+
+SetupConfirma = criar_campo(
+    setupCentro,
+    "Confirmar senha"
+)
+SetupConfirma.configure(show="*")
+SetupConfirma.pack(pady=8)
+
+criar_botao(
+    setupCentro,
+    "Criar administrador",
+    criarAdmin
+).pack(pady=15)
+
+setupErro = ctk.CTkLabel(
+    setupCentro,
+    text="",
+    text_color="#B91C1C",
+    wraplength=300
+)
+setupErro.pack()
+
+
+# ==========================================
 # FRAME PRINCIPAL
 # ==========================================
 
@@ -721,12 +1049,12 @@ ctk.CTkLabel(Addframe, text="Categoria:", text_color=LETRAS).pack()
 CategAdd = criar_campo(Addframe)
 CategAdd.pack(pady=5)
 
-ctk.CTkLabel(Addframe, text="Preço:", text_color=LETRAS).pack()
-PrecoAdd = criar_campo(Addframe)
+ctk.CTkLabel(Addframe, text="Preço (ex: 29.90):", text_color=LETRAS).pack()
+PrecoAdd = criar_campo(Addframe, tipo="preco")
 PrecoAdd.pack(pady=5)
 
 ctk.CTkLabel(Addframe, text="Quantidade:", text_color=LETRAS).pack()
-QuantAdd = criar_campo(Addframe)
+QuantAdd = criar_campo(Addframe, tipo="inteiro")
 QuantAdd.pack(pady=5)
 
 criar_botao(
@@ -758,11 +1086,11 @@ criar_titulo(
 
 ctk.CTkLabel(
     delFrame,
-    text="ID / Nome do livro:",
+    text="ID do livro:",
     text_color=LETRAS
 ).pack()
 
-LivroDel = criar_campo(delFrame)
+LivroDel = criar_campo(delFrame, tipo="inteiro")
 LivroDel.pack(pady=8)
 
 criar_botao(
@@ -846,19 +1174,40 @@ VendaFrame = ctk.CTkFrame(
 criar_titulo(
     VendaFrame,
     "Realizar Venda"
-).pack(pady=20)
+).pack(pady=15)
 
-idVenda = criar_campo(
+# linha: ID do livro + quantidade + botao de adicionar
+linhaAdd = ctk.CTkFrame(
     VendaFrame,
-    "ID do livro"
+    fg_color="transparent"
 )
-idVenda.pack(pady=8)
+linhaAdd.pack(pady=5)
+
+colunaId = ctk.CTkFrame(linhaAdd, fg_color="transparent")
+colunaId.pack(side="left", padx=8)
+
+ctk.CTkLabel(colunaId, text="ID do livro:", text_color=LETRAS).pack()
+idVenda = criar_campo(colunaId, tipo="inteiro")
+idVenda.configure(width=180)
+idVenda.pack()
+
+colunaQtd = ctk.CTkFrame(linhaAdd, fg_color="transparent")
+colunaQtd.pack(side="left", padx=8)
+
+ctk.CTkLabel(colunaQtd, text="Quantidade:", text_color=LETRAS).pack()
+qtdVenda = criar_campo(colunaQtd, tipo="inteiro")
+qtdVenda.configure(width=120)
+qtdVenda.pack()
 
 criar_botao(
-    VendaFrame,
-    "Buscar",
-    lambda: BuscaVenda(idVenda)
-).pack(pady=8)
+    linhaAdd,
+    "Adicionar ao carrinho",
+    AdicionarCarrinho
+).pack(side="left", padx=8, anchor="s")
+
+# Enter tambem adiciona ao carrinho
+idVenda.bind("<Return>", lambda event: AdicionarCarrinho())
+qtdVenda.bind("<Return>", lambda event: AdicionarCarrinho())
 
 ValorTotal = ctk.CTkLabel(
     VendaFrame,
@@ -866,34 +1215,54 @@ ValorTotal = ctk.CTkLabel(
     text_color=LETRAS,
     font=("Arial", 18, "bold")
 )
-ValorTotal.pack(pady=10)
+ValorTotal.pack(pady=8)
+
+linhaBotoes = ctk.CTkFrame(
+    VendaFrame,
+    fg_color="transparent"
+)
+linhaBotoes.pack(pady=5)
 
 criar_botao(
-    VendaFrame,
-    "Vender",
-    Venderlivro
-).pack(pady=8)
+    linhaBotoes,
+    "Finalizar venda",
+    FinalizarVenda
+).pack(side="left", padx=6)
 
 criar_botao(
-    VendaFrame,
-    "Cancelar",
+    linhaBotoes,
+    "Remover selecionado",
+    RemoverDoCarrinho
+).pack(side="left", padx=6)
+
+criar_botao(
+    linhaBotoes,
+    "Limpar carrinho",
     limpar_venda
-).pack(pady=8)
+).pack(side="left", padx=6)
+
+# o botao Voltar e empacotado antes da tabela para nunca ficar sem espaco
+criar_botao(
+    VendaFrame,
+    "Voltar",
+    voltar
+).pack(side="bottom", pady=8)
 
 TabelaLivroVenda = ttk.Treeview(
     VendaFrame,
-    columns=("ID", "TITULO", "AUTOR", "CATEGORIA", "PREÇO", "QUANTIDADE"),
-    show="headings"
+    columns=("ID", "TITULO", "AUTOR", "CATEGORIA", "PREÇO", "QTD", "SUBTOTAL"),
+    show="headings",
+    selectmode="browse"
 )
 
 TabelaLivroVenda.pack(
     fill="both",
     expand=True,
     padx=20,
-    pady=15
+    pady=10
 )
 
-for coluna in ("ID", "TITULO", "AUTOR", "CATEGORIA", "PREÇO", "QUANTIDADE"):
+for coluna in ("ID", "TITULO", "AUTOR", "CATEGORIA", "PREÇO", "QTD", "SUBTOTAL"):
     TabelaLivroVenda.heading(coluna, text=coluna)
 
 TabelaLivroVenda.column("ID", width=50)
@@ -901,13 +1270,8 @@ TabelaLivroVenda.column("TITULO", width=200)
 TabelaLivroVenda.column("AUTOR", width=150)
 TabelaLivroVenda.column("CATEGORIA", width=120)
 TabelaLivroVenda.column("PREÇO", width=100)
-TabelaLivroVenda.column("QUANTIDADE", width=100)
-
-criar_botao(
-    VendaFrame,
-    "Voltar",
-    voltar
-).pack(pady=8)
+TabelaLivroVenda.column("QTD", width=70)
+TabelaLivroVenda.column("SUBTOTAL", width=100)
 
 
 # ==========================================
@@ -937,15 +1301,15 @@ CategUpd = criar_campo(UpdFrame)
 CategUpd.pack(pady=5)
 
 ctk.CTkLabel(UpdFrame, text="Preço:", text_color=LETRAS).pack()
-PrecoUpd = criar_campo(UpdFrame)
+PrecoUpd = criar_campo(UpdFrame, tipo="preco")
 PrecoUpd.pack(pady=5)
 
 ctk.CTkLabel(UpdFrame, text="Quantidade:", text_color=LETRAS).pack()
-QuantUpd = criar_campo(UpdFrame)
+QuantUpd = criar_campo(UpdFrame, tipo="inteiro")
 QuantUpd.pack(pady=5)
 
 ctk.CTkLabel(UpdFrame, text="ID:", text_color=LETRAS).pack()
-IdUpd = criar_campo(UpdFrame)
+IdUpd = criar_campo(UpdFrame, tipo="inteiro")
 IdUpd.pack(pady=5)
 
 criar_botao(
@@ -1056,28 +1420,105 @@ criar_botao(
     voltar
 ).pack(pady=8)
 
+
 # ==========================================
-# FRAME DE CADASTRO DE USUARIO
+# FRAME DA LISTA DE USUARIOS
 # ==========================================
-AddUser = ctk.CTkFrame(
+
+UsersFrame = ctk.CTkFrame(
     janela,
     fg_color=FUNDO
 )
 
 criar_titulo(
-    AddUser,
-    "Cadastrar usuario"
-).pack(pady=20)
+    UsersFrame,
+    "Usuários"
+).pack(pady=25)
 
-ctk.CTkLabel(AddUser, text="Nome do usúario", text_color=LETRAS).pack()
+linhaBotoesUser = ctk.CTkFrame(
+    UsersFrame,
+    fg_color="transparent"
+)
+linhaBotoesUser.pack(pady=5)
+
+criar_botao(
+    linhaBotoesUser,
+    "Novo usuário",
+    novoUsuario
+).pack(side="left", padx=6)
+
+criar_botao(
+    linhaBotoesUser,
+    "Editar selecionado",
+    editarUsuario
+).pack(side="left", padx=6)
+
+criar_botao(
+    linhaBotoesUser,
+    "Remover selecionado",
+    removerUsuarioTela
+).pack(side="left", padx=6)
+
+criar_botao(
+    UsersFrame,
+    "Voltar",
+    voltar
+).pack(side="bottom", pady=8)
+
+TabelaUser = ttk.Treeview(
+    UsersFrame,
+    columns=("USUARIO", "TIPO"),
+    show="headings",
+    selectmode="browse"
+)
+
+TabelaUser.pack(
+    fill="both",
+    expand=True,
+    padx=20,
+    pady=15
+)
+
+TabelaUser.heading("USUARIO", text="USUÁRIO")
+TabelaUser.heading("TIPO", text="TIPO")
+
+TabelaUser.column("USUARIO", width=250)
+TabelaUser.column("TIPO", width=150)
+
+
+# ==========================================
+# FRAME DO FORMULARIO DE USUARIO (NOVO / EDITAR)
+# ==========================================
+
+AddUser = ctk.CTkFrame(
+    janela,
+    fg_color=FUNDO
+)
+
+TituloUserForm = criar_titulo(
+    AddUser,
+    "Novo usuário"
+)
+TituloUserForm.pack(pady=20)
+
+ctk.CTkLabel(AddUser, text="Nome do usuário", text_color=LETRAS).pack()
 UserAdd = criar_campo(AddUser)
 UserAdd.pack(pady=5)
 
-ctk.CTkLabel(AddUser, text="Senha do usuario", text_color=LETRAS).pack()
+ctk.CTkLabel(AddUser, text="Senha do usuário", text_color=LETRAS).pack()
 SenhaAdd = criar_campo(AddUser)
+SenhaAdd.configure(show="*")
 SenhaAdd.pack(pady=5)
 
-ctk.CTkLabel(AddUser, text="Tipo do usuario", text_color=LETRAS).pack()
+dicaSenha = ctk.CTkLabel(
+    AddUser,
+    text="",
+    text_color=LETRAS,
+    font=("Arial", 12)
+)
+dicaSenha.pack()
+
+ctk.CTkLabel(AddUser, text="Tipo do usuário", text_color=LETRAS).pack()
 
 TipoAdd = ctk.StringVar(value="Funcionario")
 
@@ -1095,14 +1536,14 @@ for tipo in ("Admin", "Gerente", "Funcionario"):
 
 criar_botao(
     AddUser,
-    "Adicionar",
-    addUser
+    "Salvar",
+    salvarUsuario
 ).pack(pady=8)
 
 criar_botao(
     AddUser,
-    "Voltar",
-    voltar
+    "Cancelar",
+    menuUser
 ).pack(pady=8)
 
 
@@ -1112,6 +1553,7 @@ criar_botao(
 
 todas_telas = [
     loginFrame,
+    SetupFrame,
     main,
     Addframe,
     delFrame,
@@ -1119,6 +1561,7 @@ todas_telas = [
     VendaFrame,
     UpdFrame,
     histFrame,
+    UsersFrame,
     AddUser
 ]
 
@@ -1130,6 +1573,7 @@ todas_telas = [
 tipo_usuario = None
 usuario_logado = None
 
+# sem nenhum Admin no banco abre a tela de criar administrador; senao, o login
+mostrar_inicio()
 
 janela.mainloop()
-
