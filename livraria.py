@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import customtkinter as ctk
 
-from main import (
+from validacao import (
     adicionar_Livro,
     deletar_livro,
     Buscar_Livro,
